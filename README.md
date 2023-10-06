@@ -7,7 +7,6 @@ using Python's visualisation libraries; and
 
 The rest of this README is the original README of the HPC labs.
 
-[]: # Path: HPC/README.md
 # Assignment HPC
 
 This file contains a bunch of helper commands and links that you can find useful during your development on DelftBlue.
@@ -22,11 +21,10 @@ Please look at [slurm directive docs](https://slurm.schedmd.com/sbatch.html) for
 
 ## Ressources
 
-DelftBlue docs
-`https://doc.dhpc.tudelft.nl/delftblue/`
+[DelftBlue docs](https://doc.dhpc.tudelft.nl/delftblue/)
 
 Connect to DelftBlue
-`ssh <netid>@login.delftblue.tudelft.nl`
+`ssh <netid>@login.delftblue.tudelft.nl`1
 
 Schedule the job (return job id) 
 `sbatch ./HPC/<assigment_folder>/<main>.sh`
@@ -43,11 +41,9 @@ To cancel job
 View jobs 
 `sacct`
 
-OpenDemand Platform
-`login.delftblue.tudelft.nl`
+[OpenDemand Platform](https://opendemand.dhpc.tudelft.nl/)
 
-DefltBlue dashboard for cluster status
-`https://login.delftblue.tudelft.nl/pun/sys/dashboard`
+[DefltBlue dashboard for cluster status](https://login.delftblue.tudelft.nl/pun/sys/dashboard)
 
 Sbatch directive to use the HPC course credits to submit your job (to add to .sh files)
 `#SBATCH –-account=Education-EEMCS-Courses-IN4049TU`
