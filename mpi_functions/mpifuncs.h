@@ -1,0 +1,1 @@
+int MPI_getNodeCount(void);
