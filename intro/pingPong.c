@@ -2,13 +2,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <mpi.h>
-#include "saveArray.h"
+#include "dataxtract.h"
+#include "mpifuncs.h"
 int MPI_getNodeCount(void);
 
 // Maximum array size 2^20 = 1048576 elements
 #define MAX_ARRAY_SIZE_LEFT_SHIFT 20
 #define MAX_ARRAY_SIZE (1<<MAX_ARRAY_SIZE_LEFT_SHIFT)
-#define ASSIGNMENT_FOLDER "~/HPC/hpc-post-processing/assignment_0/ping_pong/"
+#define ASSIGNMENT_FOLDER "/home/psoliman/HPC/hpc-labs/out/assignment_0/"
 
 
 int main(int argc, char **argv)
@@ -46,9 +47,9 @@ int main(int argc, char **argv)
     int numberOfNodes = MPI_getNodeCount();
 
     // initialise arrays to save message length, duration and combined duration
-    double messageLengthArray[MAX_ARRAY_SIZE_LEFT_SHIFT+1];
-    int timeArray[MAX_ARRAY_SIZE_LEFT_SHIFT+1];
-    int combinedTimeArray[MAX_ARRAY_SIZE_LEFT_SHIFT+1];
+    int messageLengthArray[MAX_ARRAY_SIZE_LEFT_SHIFT+1];
+    double timeArray[MAX_ARRAY_SIZE_LEFT_SHIFT+1];
+    double combinedTimeArray[MAX_ARRAY_SIZE_LEFT_SHIFT+1];
     double startTime, endTime;
 
     // ping pong loop
@@ -160,6 +161,9 @@ int main(int argc, char **argv)
             }
         }
     }
+    
+    // Finalize MPI
+    MPI_Finalize();
 
     if (myRank == 0)
     {   
@@ -173,47 +177,14 @@ int main(int argc, char **argv)
 
         // save data to file
         printf("Saving message length and duration data to file...\n");
-        char *arrayFileName = (char*)malloc((strlen("time_array_nnodes=.txt") + 2)* sizeof(char));
-        sprintf(arrayFileName, "time_array_nnodes=%i.txt", numberOfNodes);
-        saveArray(timeDataArray, arraySize, strcat(ASSIGNMENT_FOLDER, arrayFileName));
+        char *arrayFileName = (char*)malloc((strlen("time_array_nnodes=") + 2)* sizeof(char));
+        sprintf(arrayFileName, "time_array_nnodes=%i", numberOfNodes);
+        char fullPath[sizeof(ASSIGNMENT_FOLDER)+sizeof(arrayFileName)] = ASSIGNMENT_FOLDER;
+        strcat(fullPath, arrayFileName); 
+        saveArray(timeDataArray, arraySize, fullPath);
         printf("Saving done!\n");
     }
-
-    // Finalize MPI
-    MPI_Finalize();
 
     return 0;
 }
 
-/*
-Function to get the number of nodes from MPI_COMM_WORLD
-obtained from: https://stackoverflow.com/questions/34115227/how-to-get-the-number-of-physical-machine-in-mpi
-*/ 
-int MPI_getNodeCount(void)
-{
-    printf("Getting number of nodes:\n");
-
-    int rank, is_rank0, nodes;
-    MPI_Comm shmcomm;
-
-    printf("\tSplitting MPI_COMM_WORLD into shared memory communicator...\n");
-    MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0,
-                        MPI_INFO_NULL, &shmcomm);
-
-    printf("\tGetting rank of each process in shared memory communicator...\n");
-    MPI_Comm_rank(shmcomm, &rank);
-
-    printf("\tChecking if rank is 0...\n");
-    is_rank0 = (rank == 0) ? 1 : 0;
-
-    printf("\tSumming up all ranks...\n");
-    MPI_Allreduce(&is_rank0, &nodes, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-    printf("\tNumber of nodes: %i\n", nodes);
-
-    printf("\tFreeing shared memory communicator...\n");
-    MPI_Comm_free(&shmcomm);
-
-    printf("\tDone!\n");
-    return nodes;
-}

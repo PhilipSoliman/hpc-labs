@@ -3,9 +3,9 @@
 #SBATCH --job-name="pingpong"
 #SBATCH --partition=compute
 #SBATCH --time=1:00:00
-#SBATCH --nodes=2
+#SBATCH --nodes=1
 #SBATCH --ntasks=2
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=2
 #SBATCH --mem-per-cpu=1G
 #SBATCH --account=Education-EEMCS-Courses-IN4049TU
 
@@ -20,5 +20,5 @@ module load openmpi
 
 cd ~/HPC/hpc-labs/intro/
 
-mpicc pingPong.c ~/HPC/hpc-labs/saveArray.c -o pingPong.x -I "~/HPC/hpc-labs/data_extraction/"
+mpicc pingPong.c ~/HPC/hpc-labs/data_extraction/saveArray.c -g -o pingPong.x -I ~/HPC/hpc-labs/data_extraction/ -I ~/HPC/hpc-labs/mpi_functions/
 srun pingPong.x
