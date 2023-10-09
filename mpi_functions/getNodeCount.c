@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include "mpifuncs.h"
 #include <mpi.h>
+#include "mpifuncs.h"
 
 
 /*

@@ -4,7 +4,6 @@
 #include <mpi.h>
 #include "dataxtract.h"
 #include "mpifuncs.h"
-int MPI_getNodeCount(void);
 
 // Maximum array size 2^20 = 1048576 elements
 #define MAX_ARRAY_SIZE_LEFT_SHIFT 20
