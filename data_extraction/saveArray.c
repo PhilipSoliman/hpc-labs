@@ -18,7 +18,6 @@ void saveArray(double myArray[][2], int arraySize, char fullPath[]){
     const char * fileName = basename(fullPath);
     const char * directoryPath = dirname(fullPath);    
     sprintf(fullPathCopy, "%s/%s", directoryPath, fileName);
-    printf("fullPathCopy = %s\n", fullPathCopy);
 
     // creating directory (read/write/search permissions for owner and group, and with read/search permissions for others)
     printf("Creating directory %s\n...", directoryPath);
