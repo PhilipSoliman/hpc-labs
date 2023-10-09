@@ -3,9 +3,9 @@
 #SBATCH --job-name="pingpong"
 #SBATCH --partition=compute
 #SBATCH --time=1:00:00
-#SBATCH --nodes=1
+#SBATCH --nodes=2
 #SBATCH --ntasks=2
-#SBATCH --cpus-per-task=2
+#SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=1G
 #SBATCH --account=Education-EEMCS-Courses-IN4049TU
 
