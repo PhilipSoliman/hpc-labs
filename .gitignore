@@ -1,2 +1,5 @@
 # Ignore slurm output files
-slurm-*
+slurm-*.out
+
+# Ignore executable files
+intro/*.x
