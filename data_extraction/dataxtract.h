@@ -1,2 +1,2 @@
 
-void saveArray(double myArray[][2], int arraySize, char fullPath[]);
+void saveArray(void* myArrayPtr, int nRows, int nCols, char fullPath[]);

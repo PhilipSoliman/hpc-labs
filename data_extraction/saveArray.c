@@ -4,12 +4,17 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
 #include "dataxtract.h"
 
 
-void saveArray(double myArray[][2], int arraySize, char fullPath[]){
+void saveArray(void* myArrayPtr, int nRows, int nCols, char fullPath[]){
+    int arraySize = nRows * nCols;
     printf("Saving array of size %d to %s\n", arraySize, fullPath);
     FILE *fp;
+
+    // recreating array
+    double (*myArray)[arraySize] = myArrayPtr;
 
     // creating copy of fullPath, as dirname and/or basename may modify the string
     char fullPathCopy[sizeof(*fullPath) + 100];
@@ -25,13 +30,12 @@ void saveArray(double myArray[][2], int arraySize, char fullPath[]){
         printf("\tDirectory created!\n");
     } else if (errno == EEXIST){
         printf("\tDirectory already exists!\n");
-        exit(1);
     } else if (errno == ENOENT){
         printf("\tPart of directory does not exist!\n");
-        exit(1);
+        exit(0);
     } else {
         printf("\tError creating directory: %s, errno = %i\n", strerror(errno), errno);
-        exit(1);
+        exit(0);
     }
 
     // opening file  
