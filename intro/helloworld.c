@@ -18,9 +18,9 @@ int main(int argc, char **argv)
   MPI_Init(&argc, &argv);
   MPI_Comm_size(MPI_COMM_WORLD, &np);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  
-  printf("Node %d of %d says: Hello world!\n", rank, np);
-  
+
+  printf("Task %d of %d tasks says: Hello world!\n", rank, np);
+
   MPI_Finalize();
   return 0;
 }
