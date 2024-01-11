@@ -1,5 +1,6 @@
 # ignore output files
 **.out
+**.dat
 
 # ignore error log files
 **.err
