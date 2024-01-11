@@ -1,12 +1,9 @@
-# Ignore slurm output files
-slurm-*.out
-
 # ignore output files
-*.out
+**.out
 
 # ignore error log files
-*.err
+**.err
 
 # Ignore executable files
-*.x
+**.x
 
