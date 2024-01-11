@@ -8,12 +8,8 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=1G
 #SBATCH --account=Education-EEMCS-Courses-IN4049TU
-
-# mkdir -p ~/HPC/out/pingPong.out
-# SBATCH --output=pingPong.out
-
-# mkdir -p ~/HPC/out/pingPong.err
-# SBATCH --error=pingPong.err
+#SBATCH --output=/home/%u/HPC/hpc-labs/out/assignment_0/%x.out
+#SBATCH --error=/home/%u/HPC/hpc-labs/out/assignment_0/%x.err
 
 module load 2023r1
 module load openmpi
