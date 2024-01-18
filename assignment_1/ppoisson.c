@@ -47,6 +47,9 @@ int **source; /* TRUE if subgrid element is a source */
 int dim[2];   /* grid dimensions */
 
 void Setup_Grid();
+void Setup_Proc_Grid(int argc, char **argv);
+void Setup_MPI_Datatypes();
+void Exchange_Borders();
 double Do_Step(int parity);
 void Solve();
 void Write_Grid();
@@ -249,12 +252,10 @@ void Setup_Proc_Grid(int argc, char **argv)
   printf("(%i) (x,y)=(%i,%i)\n", proc_rank, proc_coord[X_DIR], proc_coord[Y_DIR]);
 
   /* calculate ranks of neighboring processes */
-  MPI_Cart_shift(grid_comm, X_DIR, 1, &proc_rank, &proc_right);
-  MPI_Cart_shift(grid_comm, X_DIR, -1, &proc_rank, &proc_left);
+  MPI_Cart_shift(grid_comm, X_DIR, 1, &proc_left, &proc_right);
 
   /*  rank of processes proc_top and proc_bottom  */
-  MPI_Cart_shift(grid_comm, Y_DIR, 1, &proc_rank, &proc_top);
-  MPI_Cart_shift(grid_comm, Y_DIR, -1, &proc_rank, &proc_bottom);
+  MPI_Cart_shift(grid_comm, Y_DIR, -1, &proc_bottom, &proc_top);
 
   if (DEBUG)
     printf("(%i) top %i,  right  %i,  bottom  %i,  left  %i\n", proc_rank, proc_top,
@@ -270,7 +271,7 @@ double Do_Step(int parity)
   /* calculate interior of grid */
   for (x = 1; x < dim[X_DIR] - 1; x++)
     for (y = 1; y < dim[Y_DIR] - 1; y++)
-      if ((x + y) % 2 == parity && source[x][y] != 1)
+      if ((offset[X_DIR] + x + offset[Y_DIR] + y) % 2 == parity && source[x][y] != 1)
       {
         old_phi = phi[x][y];
         phi[x][y] = (phi[x + 1][y] + phi[x - 1][y] +
@@ -287,14 +288,15 @@ void Solve()
 {
   int count = 0;
   double delta;
+  double global_delta;
   double delta1, delta2;
 
   Debug("Solve", 0);
 
   /* give global_delta a higher value then precision_goal */
-  delta = 2 * precision_goal;
+  global_delta = 2 * precision_goal;
 
-  while (delta > precision_goal && count < max_iter)
+  while (global_delta > precision_goal && count < max_iter)
   {
     // Debug("Do_Step 0", 0);
     delta1 = Do_Step(0);
@@ -305,6 +307,8 @@ void Solve()
     Exchange_Borders();
 
     delta = max(delta1, delta2);
+    MPI_Allreduce(&delta, &global_delta, 1, MPI_DOUBLE, MPI_MAX, grid_comm);
+
     count++;
   }
 
@@ -316,20 +320,30 @@ void Write_Grid()
   int x, y;
   FILE *f;
 
-  char fn_template[] = "output_proc=%i.dat";
-  char fn[50];
-  sprintf(fn, fn_template, proc_rank);
+  if (proc_rank == 0) 
+  {
+    char fn_template[] = "output_nproc=%i.dat";
+    char fn[50];
+    sprintf(fn, fn_template, P);
+     if ((f = fopen(fn, "w")) == NULL)
+      Debug("Write_Grid : fopen failed", 1);
 
-  if ((f = fopen(fn, "w")) == NULL)
-    Debug("Write_Grid : fopen failed", 1);
-
-  // Debug("Write_Grid", 0);
-
-  for (x = 1; x < dim[X_DIR] - 1; x++)
-    for (y = 1; y < dim[Y_DIR] - 1; y++)
-      fprintf(f, "%i %i %f\n", x, y, phi[x][y]);
-
-  fclose(f);
+      // gather all data from other processes
+      for (int i = 0; i < P; i++) {
+        if (i > 0) 
+        {
+          MPI_Recv(&phi[0][0], dim[X_DIR] * dim[Y_DIR], MPI_DOUBLE, i, 0, grid_comm, &status);
+          MPI_Recv(&offset, 2, MPI_INT, i, 0, grid_comm, &status);
+        }
+        for (x = 1; x < dim[X_DIR] - 1; x++)
+          for (y = 1; y < dim[Y_DIR] - 1; y++)
+            fprintf(f, "%i %i %f\n", offset[X_DIR] + x, offset[Y_DIR] + y, phi[x][y]);
+      }
+      fclose(f);
+  } else {
+    MPI_Send(&phi[0][0], dim[X_DIR] * dim[Y_DIR], MPI_DOUBLE, 0, 0, grid_comm);
+    MPI_Send(&offset, 2, MPI_INT, 0, 0, grid_comm);
+  }
 }
 
 void Clean_Up()
@@ -359,12 +373,15 @@ void Setup_MPI_Datatypes()
 
 void Exchange_Borders()
 {
-  // Debug("Exchange_Borders", 0);
-  MPI_Sendrecv(&phi[1][....], 1, border_type[Y_DIR], proc_top, 0,
-               &phi[1][.....], 1, border_type[Y_DIR], proc_bottom, 0, grid_comm, &status); /*  all  traffic in direction "top"        */
-  MPI_Sendrecv(......); /* all traffic in direction "bottom" */
-  MPI_Sendrecv(......); /* all traffic in direction "left" */
-  MPI_Sendrecv(......); /* all traffic in the direction "right" */
+//   // Debug("Exchange_Borders", 0);
+  MPI_Sendrecv(&phi[1][1], 1, border_type[Y_DIR], proc_top, 0,
+               &phi[1][dim[Y_DIR]-1], 1, border_type[Y_DIR], proc_bottom, 0, grid_comm, &status); /*  all  traffic in direction "top"        */
+  MPI_Sendrecv(&phi[1][dim[Y_DIR]-2], 1, border_type[Y_DIR], proc_bottom, 0,
+               &phi[1][0], 1, border_type[Y_DIR], proc_top, 0, grid_comm, &status);  /*  all  traffic in direction "bottom"        */
+  MPI_Sendrecv(&phi[1][1], 1, border_type[X_DIR], proc_left, 0,
+               &phi[dim[X_DIR]-1][1], 1, border_type[X_DIR], proc_right, 0, grid_comm, &status); /* all traffic in direction "left" */
+  MPI_Sendrecv(&phi[dim[X_DIR]-2][1], 1, border_type[X_DIR], proc_right, 0,
+               &phi[0][1], 1, border_type[X_DIR], proc_left, 0, grid_comm, &status); /* all traffic in the direction "right" */
 }
 
 int main(int argc, char **argv)

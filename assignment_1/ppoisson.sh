@@ -2,9 +2,9 @@
 #
 #SBATCH --job-name="ppoisson"
 #SBATCH --partition=compute
-#SBATCH --time=0:10:00
+#SBATCH --time=0:00:60
 #SBATCH --nodes=1
-#SBATCH --ntasks=3
+#SBATCH --ntasks=4
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=1G
 #SBATCH --account=Education-EEMCS-Courses-IN4049TU
@@ -18,4 +18,4 @@ module load openmpi
 cd ~/HPC/hpc-labs/assignment_1/
 
 mpicc ppoisson.c -o ppoisson.x
-srun ppoisson.x 1 3
+srun ppoisson.x 2 2
