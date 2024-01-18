@@ -13,15 +13,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <mpi.h>
 #include "mpifuncs.h"
 #include "dataxtract.h"
 
 void printMatrix(void *matrixPtr, int rows, int cols, int showRows, int showCols);
 
-#define MIN_MATRIX_SIZE_P2 7
+#define MIN_MATRIX_SIZE_P2 7 // 2^7 = 128
 #define MAX_MATRIX_SIZE_P2 10 // 2^10 = 1024 do not go beyond 10,!
-#define ASSIGNMENT_FOLDER "/home/psoliman/HPC/hpc-labs/out/assignment_0b/" // trailing slash is important
+#define ASSIGNMENT_FOLDER "/home/psoliman/HPC/hpc-labs/intro/MM_times/" // trailing slash is important
 
 
 int main (int argc, char *argv[]) {
@@ -41,6 +42,7 @@ int main (int argc, char *argv[]) {
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &tid);
   MPI_Comm_size(MPI_COMM_WORLD, &nThreads);
+  int nNodes = MPI_getNodeCount();
 
   MPI_Status status;
   
@@ -148,8 +150,8 @@ int main (int argc, char *argv[]) {
   // save time array to file
   if (tid == 0) {
     printf("Saving sequential-, parallel times and speedup to file...\n");
-    char *arrayFileName = (char*)malloc((strlen("time_array_nproc=") + 2)* sizeof(char));
-    sprintf(arrayFileName, "time_array_nproc=%i", nThreads);
+    char arrayFileName[50];
+    sprintf(arrayFileName, "MM_times_nproc=%i_nnodes=%i.dat", nThreads, nNodes);
     char fullPath[sizeof(ASSIGNMENT_FOLDER)+sizeof(arrayFileName)] = ASSIGNMENT_FOLDER;
     strcat(fullPath, arrayFileName); 
     saveArray(&timeArray, 3, MAX_MATRIX_SIZE_P2-MIN_MATRIX_SIZE_P2+1, fullPath);

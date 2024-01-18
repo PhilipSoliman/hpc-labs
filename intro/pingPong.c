@@ -8,7 +8,7 @@
 // Maximum array size 2^20 = 1048576 elements
 #define MAX_ARRAY_SIZE_LEFT_SHIFT 20
 #define MAX_ARRAY_SIZE (1<<MAX_ARRAY_SIZE_LEFT_SHIFT)
-#define ASSIGNMENT_FOLDER "/home/psoliman/HPC/hpc-labs/out/assignment_0/"
+#define ASSIGNMENT_FOLDER "/home/psoliman/HPC/hpc-labs/intro/pingPong_times/"
 
 
 int main(int argc, char **argv)
@@ -176,11 +176,11 @@ int main(int argc, char **argv)
 
         // save data to file
         printf("Saving message length and duration data to file...\n");
-        char *arrayFileName = (char*)malloc((strlen("time_array_nnodes=") + 2)* sizeof(char));
-        sprintf(arrayFileName, "time_array_nnodes=%i", numberOfNodes);
+        char arrayFileName[50];
+        sprintf(arrayFileName, "pingPong_times_nnodes=%i.dat", numberOfNodes);
         char fullPath[sizeof(ASSIGNMENT_FOLDER)+sizeof(arrayFileName)] = ASSIGNMENT_FOLDER;
         strcat(fullPath, arrayFileName); 
-        saveArray(timeDataArray, arraySize, fullPath);
+        saveArray(timeDataArray, 2, MAX_ARRAY_SIZE_LEFT_SHIFT, fullPath);
         printf("Saving done!\n");
     }
 
