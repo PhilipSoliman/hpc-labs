@@ -1,6 +1,5 @@
 # ignore output files
 **.out
-**.dat
 
 # ignore error log files
 **.err
@@ -8,3 +7,5 @@
 # Ignore executable files
 **.x
 
+# Ignore virtual environment
+**/.venv
