@@ -1,11 +1,14 @@
-# ignore output files
+# output files
 **.out
 
-# ignore error log files
+# error log files
 **.err
 
-# Ignore executable files
+# executable files
 **.x
 
-# Ignore virtual environment
+# virtual environment
 **/.venv
+
+# vscode
+.vscode
