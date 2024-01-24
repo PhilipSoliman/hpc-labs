@@ -129,6 +129,14 @@ int main(int argc, char *argv[])
       // receive results from other processes
       for (i = 1; i < nThreads; i++)
       {
+        if (i >= 0 && i < nThreads - 1)
+        {
+          nRows = nRowsMax;
+        }
+        else if (i == nThreads - 1)
+        {
+          nRows = (NRA - nRowsMax * tid);
+        }
         MPI_Recv(&c[i * nRowsMax], nRows * NCB, MPI_INT, i, 0, MPI_COMM_WORLD, &status);
       }
     }
