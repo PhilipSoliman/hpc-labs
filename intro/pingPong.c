@@ -180,7 +180,7 @@ int main(int argc, char **argv)
         sprintf(arrayFileName, "pingPong_times_nnodes=%i.dat", numberOfNodes);
         char fullPath[sizeof(ASSIGNMENT_FOLDER)+sizeof(arrayFileName)] = ASSIGNMENT_FOLDER;
         strcat(fullPath, arrayFileName); 
-        saveArray(timeDataArray, 2, MAX_ARRAY_SIZE_LEFT_SHIFT, fullPath);
+        saveArray(timeDataArray, MAX_ARRAY_SIZE_LEFT_SHIFT+1, 2, fullPath);
         printf("Saving done!\n");
     }
 
