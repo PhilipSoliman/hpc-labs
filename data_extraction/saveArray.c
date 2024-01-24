@@ -14,7 +14,7 @@ void saveArray(void* myArrayPtr, int nRows, int nCols, char fullPath[]){
     FILE *fp;
 
     // recreating array
-    double (*myArray)[arraySize] = myArrayPtr;
+    // double (*myArray)[arraySize] = myArrayPtr;
 
     // creating copy of fullPath, as dirname and/or basename may modify the string
     char fullPathCopy[sizeof(*fullPath) + 100];
@@ -45,21 +45,21 @@ void saveArray(void* myArrayPtr, int nRows, int nCols, char fullPath[]){
     }
 
     // writing to file
-    // printf("Writing %s to folder %s\n", fileName, directoryPath);
-    // if(fwrite(myArray, sizeof(double), arraySize, fp) != arraySize){
-    //     printf("File write error.");
-    //     exit(1);
-    // }
-    for(int i = 0; i < nRows; i++)
-    {
-        for(int j = 0; j < nCols; j++)
-        {
-            if (fwrite(&myArray[i][j], sizeof(double), 1, fp) != 1) {
-                printf("File write error.");
-                exit(1);
-            }
-        }
-    } 
+    printf("Writing %s to folder %s\n", fileName, directoryPath);
+    if(fwrite(myArrayPtr, sizeof(double), arraySize, fp) != arraySize){
+        printf("File write error.");
+        exit(1);
+    }
+    // for(int i = 0; i < nRows; i++)
+    // {
+    //     for(int j = 0; j < nCols; j++)
+    //     {
+    //         if (fwrite(&myArray[i][j], sizeof(double), 1, fp) != 1) {
+    //             printf("File write error.");
+    //             exit(1);
+    //         }
+    //     }
+    // } 
 
     // closing file 
     fclose(fp);
