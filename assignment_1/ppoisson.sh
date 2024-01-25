@@ -4,7 +4,7 @@
 #SBATCH --partition=compute
 #SBATCH --time=0:00:60
 #SBATCH --nodes=1
-#SBATCH --ntasks=4
+#SBATCH --ntasks=3
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=1G
 #SBATCH --account=Education-EEMCS-Courses-IN4049TU
