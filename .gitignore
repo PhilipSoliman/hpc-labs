@@ -19,3 +19,8 @@ assignment_2/input/grid[0-99]*.dat
 
 # vscode
 .vscode
+
+# report folder
+report/build
+report/figures
+report/tables
