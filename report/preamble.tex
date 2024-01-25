@@ -9,6 +9,17 @@
   top=25mm,
   bottom=25mm
 }
+% title 
+\makeatletter
+\renewcommand\maketitle{
+    {\raggedright % Note the extra {
+    \begin{center}
+    {\normalsize \sffamily \course }\\[2ex] 
+    {\Large \bfseries \sffamily \@title }\\[2ex] 
+    {\normalsize  \@author}\\[1ex]
+    \@date\\[4ex]
+    \end{center}}} 
+\makeatother
 
 % Multiple columns
 \usepackage{multicol}
