@@ -64,29 +64,38 @@ header = [
     r"\textbf{speedup}",
 ]
 caption = "Execution time and speedup for matrix multiplication"
-rows = [header]
 MMTimes_T = MMTimes.transpose(2, 0, 1)  # matrix size, processes, time
+Nsizes, Nprocs, _ = MMTimes_T.shape
+rows = [[]]*(Nsizes*(Nprocs+1)+1)
+rows[0] = header
+procs = sorted([int(MMMeta[i]["nproc"]) for i in range(len(MMMeta))])
+
+def scientific_fmt(s: float, prec: int = 2) -> str:
+    specifier = f"{{:.{prec}e}}"
+    scientific_str = specifier.format(s)
+    mantissa, exponent = scientific_str.split("e")
+    out = mantissa + r"$\times 10^{" + exponent + "}$"
+    return out
+
 for i in range(len(MMTimes_T)):
     measurements = MMTimes_T[i]
     for j, [seq, par, speedup, size] in enumerate(measurements):
         nnodes, nproc = str(MMMeta[j]["nnodes"]), str(MMMeta[j]["nproc"])
-        if j == 0:
-            size_str = f"{size:.0f}" + r"\times" + f"{size:.0f}"
-            time = r"{:.2e}.".format(seq)
-            speedup = ""
-        else:
-            size_str = ""
-            time = r"{:.2e}.".format(par)
-            speedup = r"\textbf{" + f"{speedup:.2e}" + "}"
-        row = [size_str, nproc, nnodes, time, speedup]
-        rows.append(row)
+        proc_idx = procs.index(int(nproc))+1
+        if j==0:
+            size_str = r"\hline" + f"{size:.0f}" + r"$\times$" + f"{size:.0f}"
+            # size_str = f"{size:.0f}" + r"$\times$" + f"{size:.0f}"
+            rows[i*(Nprocs+1)+1] = [size_str, 1, nnodes, seq, ""]
+        row_index = i*Nprocs+proc_idx+1
+        rows[i*(Nprocs+1)+proc_idx+1] = ["", nproc, nnodes, par, speedup]
 table = Texttable()
 table.set_cols_align(["c"] * len(header))
 table.set_deco(Texttable.HEADER | Texttable.VLINES)
 table.set_precision(2)
 table.add_rows(rows)
-table.set_cols_dtype([lambda x: x] * 5)
+table.set_cols_dtype(["i", "t", "t", scientific_fmt, scientific_fmt])
 label = f"tab:{header[0]}"
+
 
 filename = "MM_times_table.tex"
 filepath = root / "report" / "tables" / filename
