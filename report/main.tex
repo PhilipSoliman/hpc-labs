@@ -1,0 +1,30 @@
+\documentclass[11pt]{report}
+
+\input{preamble.tex}
+
+\newcommand{\course}{IN4049TU Introduction to High Performance Computing}
+\title{Project Part I\&II}
+\author{Philip Soliman (4945255)}
+\date{\today}
+
+\renewcommand{\thesection}{\Large\arabic{section}}
+\renewcommand{\thesubsection}{\large\quad\arabic{section}.\alph{subsection}}
+\renewcommand{\thesubsubsection}{\quad\arabic{subsubsection}}
+
+% Change the (sub)section fonts & make subsec not do a newline - Jelmarp
+% \titleformat{\section}{\normalfont\fontsize{13}{13}\bfseries}{\thesection}{1em}{}
+% \titleformat{\subsection}[runin]{\normalfont\fontsize{12}{15}}{\thesubsection}{0.5em}{}[]
+%----------------------
+
+\begin{document}
+\cite{random_article}
+\maketitle
+
+\input{sections/intro.tex}
+
+\newpage
+\input{sections/poisson.tex}
+
+\newpage
+\printbibliography
+\end{document}
