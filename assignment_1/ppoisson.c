@@ -322,8 +322,8 @@ void Write_Grid()
 
   if (proc_rank == 0) 
   {
-    char fn_template[] = "output_nproc=%i.dat";
-    char fn[50];
+    char fn_template[] = "output/output_nproc=%i.dat";
+    char fn[100];
     sprintf(fn, fn_template, P);
      if ((f = fopen(fn, "w")) == NULL)
       Debug("Write_Grid : fopen failed", 1);
