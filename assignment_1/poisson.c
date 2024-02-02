@@ -203,7 +203,7 @@ void Write_Grid()
   int x, y;
   FILE *f;
 
-  if ((f = fopen("poisson.dat", "w")) == NULL)
+  if ((f = fopen("output/poisson.dat", "w")) == NULL)
     Debug("Write_Grid : fopen failed", 1);
 
   Debug("Write_Grid", 0);
@@ -227,6 +227,9 @@ void Clean_Up()
 
 int main(int argc, char **argv)
 {
+
+  MPI_Init(&argc, &argv);
+
   start_timer();
 
   Setup_Grid();
@@ -238,6 +241,8 @@ int main(int argc, char **argv)
   print_timer();
 
   Clean_Up();
+
+  MPI_Finalize();
 
   return 0;
 }
