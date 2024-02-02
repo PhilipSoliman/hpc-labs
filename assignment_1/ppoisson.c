@@ -122,7 +122,7 @@ void Setup_Grid()
   int upper_offset[2];
   FILE *f;
 
-  Debug("Setup_Subgrid", 0);
+  // Debug("Setup_Subgrid", 0);
 
   if (proc_rank == 0)
   {
@@ -218,7 +218,7 @@ void Setup_Proc_Grid(int argc, char **argv)
 {
   int wrap_around[2];
   int reorder;
-  Debug("My_MPI_Init", 0);
+  // Debug("My_MPI_Init", 0);
 
   /* Retrieve the number of processes */
   MPI_Comm_size(MPI_COMM_WORLD, &P); /* find out how many processes there are        */
@@ -291,7 +291,7 @@ void Solve()
   double global_delta;
   double delta1, delta2;
 
-  Debug("Solve", 0);
+  // Debug("Solve", 0);
 
   /* give global_delta a higher value then precision_goal */
   global_delta = 2 * precision_goal;
@@ -322,7 +322,7 @@ void Write_Grid()
 
   if (proc_rank == 0) 
   {
-    char fn_template[] = "output/output_nproc=%i.dat";
+    char fn_template[] = "output/ppoisson_nproc=%i.dat";
     char fn[100];
     sprintf(fn, fn_template, P);
      if ((f = fopen(fn, "w")) == NULL)
