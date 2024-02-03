@@ -28,6 +28,7 @@ MPI_Datatype border_type[2];    /* Datatypes for vertical and horizontal exchang
 int *gridsizes;
 int grid_length;
 int grid_size_idx = 0;
+int write_output_flag = 0;
 
 /* process specific variables */
 int proc_rank;                                    /* process rank and number of ranks */
@@ -58,7 +59,10 @@ int dim[2];   /* grid dimensions */
 double omega;
 double *omegas;
 int omega_length;
-int omega_optimal = 0;
+
+/* error array*/
+double *errors;
+int track_errors = 0;
 
 /* function declarations */
 void Setup_Grid();
@@ -70,7 +74,8 @@ double Do_Step(int parity);
 void Solve();
 void Write_Grid();
 void Benchmark();
-void Clean_Up();
+void Clean_Up_Problemdata();
+void Clean_Up_Metadata();
 void Debug(char *mesg, int terminate);
 void start_timer();
 void resume_timer();
@@ -303,7 +308,6 @@ void Get_CLIs(int argc, char **argv)
       if (strcmp(argv[l], "-omegas") == 0)
       {
         printf("(%i) Using omega values from command line\n", proc_rank);
-        omega_optimal = 1;
         omega_start = atof(argv[l + 1]);
         omega_end = atof(argv[l + 2]);
         omega_step = atof(argv[l + 3]);
@@ -338,6 +342,44 @@ void Get_CLIs(int argc, char **argv)
         for (i = 0; i < grid_length; i++)
         {
           gridsizes[i] = grid_start + i * grid_step;
+        }
+      }
+
+      if (strcmp(argv[l], "-output") == 0)
+      {
+        if (strcmp(argv[l + 1], "true") == 0)
+        {
+          printf("(%i) Writing output to file\n", proc_rank);
+          write_output_flag = 1;
+        }
+        else if (strcmp(argv[l + 1], "false") == 0)
+        {
+          printf("(%i) Not writing output to file\n", proc_rank);
+          write_output_flag = 0;
+        }
+        else
+        {
+          printf("(%i) Invalid output flag, no output will be generated\n", proc_rank);
+          write_output_flag = 0;
+        }
+      }
+
+      if (strcmp(argv[l], "-errors") == 0)
+      {
+        if (strcmp(argv[l + 1], "true") == 0)
+        {
+          printf("(%i) Tracking errors\n", proc_rank);
+          track_errors = 1;
+        }
+        else if (strcmp(argv[l + 1], "false") == 0)
+        {
+          printf("(%i) Not tracking errors\n", proc_rank);
+          track_errors = 0;
+        }
+        else
+        {
+          printf("(%i) Invalid errors flag, no errors will be tracked\n", proc_rank);
+          track_errors = 0;
         }
       }
 
@@ -387,6 +429,11 @@ void Solve()
 
   /* give global_delta a higher value then precision_goal */
   global_delta = 2 * precision_goal;
+  if (proc_rank == 0)
+  {
+    errors = malloc(sizeof(double));
+    errors[0] = global_delta;
+  }
   while (global_delta > precision_goal && count < max_iter)
   {
     // Debug("Do_Step 0", 0);
@@ -401,7 +448,14 @@ void Solve()
     MPI_Allreduce(&delta, &global_delta, 1, MPI_DOUBLE, MPI_MAX, grid_comm);
 
     count++;
+
+    if (proc_rank == 0)
+    {
+      errors = realloc(errors, (count + 1) * sizeof(double));
+      errors[count] = global_delta;
+    }
   }
+
   printf("(%i) Gridsize: %i,  Omega: %.2f, Iterations: %i, Error: %.2e\n", proc_rank, gridsize[X_DIR], omega, count, global_delta);
 }
 
@@ -409,12 +463,24 @@ void Write_Grid()
 {
   int x, y;
   FILE *f;
+  double **out;
 
   if (proc_rank == 0)
   {
-    char fn_template[] = "output/ppoisson2_gs=%ix%i_nproc=%i_omega=%.2f.dat";
-    char fn[100];
-    sprintf(fn, fn_template, gridsize[X_DIR], gridsize[Y_DIR], P, omega);
+    if ((out = malloc(gridsize[X_DIR] * sizeof(*out))) == NULL)
+      Debug("Write_Grid : malloc failed", 1);
+    if ((out[0] = malloc(gridsize[X_DIR] * gridsize[Y_DIR] * sizeof(**out))) == NULL)
+      Debug("Write_Grid : malloc failed", 1);
+    for (x = 1; x < gridsize[X_DIR]; x++)
+      out[x] = out[0] + x * gridsize[Y_DIR];
+    for (x = 0; x < gridsize[X_DIR]; x++)
+      for (y = 0; y < gridsize[Y_DIR]; y++)
+        out[x][y] = 0.0;
+
+
+    char fn_template[] = "output/procg=%ix%i__gs=%ix%i_omega=%3.2f.dat";
+    char fn[200];
+    sprintf(fn, fn_template, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omega);
     if ((f = fopen(fn, "w")) == NULL)
       Debug("Write_Grid : fopen failed", 1);
 
@@ -428,8 +494,16 @@ void Write_Grid()
       }
       for (x = 1; x < dim[X_DIR] - 1; x++)
         for (y = 1; y < dim[Y_DIR] - 1; y++)
-          fprintf(f, "%i %i %f\n", offset[X_DIR] + x, offset[Y_DIR] + y, phi[x][y]);
+          out[offset[X_DIR] + x][offset[Y_DIR] + y] = phi[x][y];
+          // fprintf(f, "%i %i %f\n", offset[X_DIR] + x, offset[Y_DIR] + y, phi[x][y]);
     }
+
+    if (fwrite(out[0], sizeof(double), gridsize[X_DIR] * gridsize[Y_DIR], f) != gridsize[X_DIR] * gridsize[Y_DIR])
+    {
+      Debug("File write error.", 1);
+      exit(1);
+    }
+
     fclose(f);
   }
   else
@@ -497,9 +571,9 @@ void Benchmark()
 
   if (proc_rank == 0)
   {
-    char fn_template[] = "ppoisson_times/ppoisson2_gs=%ix%i_nproc=%i_wl=%3.2f_wh=%3.2f_nomega=%i_times.dat";
+    char fn_template[] = "ppoisson_times/procg=%ix%i__gs=%ix%i_wl=%3.2f_wh=%3.2f_nomega=%i_times.dat";
     char fn[200];
-    sprintf(fn, fn_template, gridsize[X_DIR], gridsize[Y_DIR], P, omegas[0], omegas[omega_length - 1], omega_length);
+    sprintf(fn, fn_template, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omegas[0], omegas[omega_length - 1], omega_length);
     FILE *f = fopen(fn, "w");
     if (f == NULL)
       Debug("Error opening benchmark file", 1);
@@ -511,10 +585,11 @@ void Benchmark()
     }
     fclose(f);
 
+
     //  save omega values to file
-    char fn_template2[] = "ppoisson_times/ppoisson2_gs=%ix%i_nproc=%i_wl=%3.2f_wh=%3.2f_nomega=%i_omegas.dat";
+    char fn_template2[] = "ppoisson_times/procg=%ix%i__gs=%ix%i_wl=%3.2f_wh=%3.2f_nomega=%i_omegas.dat";
     char fn2[200];
-    sprintf(fn2, fn_template2, gridsize[X_DIR], gridsize[Y_DIR], P, omegas[0], omegas[omega_length - 1], omega_length);
+    sprintf(fn2, fn_template2, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omegas[0], omegas[omega_length - 1], omega_length);
     FILE *f2 = fopen(fn2, "w");
     if (f2 == NULL)
       Debug("Error opening benchmark file", 1);
@@ -528,9 +603,9 @@ void Benchmark()
     fclose(f2);
 
     //  save iters to file
-    char fn_template3[] = "ppoisson_times/ppoisson2_gs=%ix%i_nproc=%i_wl=%3.2f_wh=%3.2f_nomega=%i_iters.dat";
+    char fn_template3[] = "ppoisson_times/procg=%ix%i__gs=%ix%i_wl=%3.2f_wh=%3.2f_nomega=%i_iters.dat";
     char fn3[200];
-    sprintf(fn3, fn_template3, gridsize[X_DIR], gridsize[Y_DIR], P, omegas[0], omegas[omega_length - 1], omega_length);
+    sprintf(fn3, fn_template3, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omegas[0], omegas[omega_length - 1], omega_length);
     FILE *f3 = fopen(fn3, "w");
     if (f3 == NULL)
       Debug("Error opening benchmark file", 1);
@@ -545,7 +620,28 @@ void Benchmark()
   }
 }
 
-void Clean_Up()
+void Error_Analysis()
+{
+  // Debug("Error_Analysis", 0);
+  char fn_template[] = "error_analysis/procg=%ix%i__gs=%ix%i_omega=%3.2f.dat";
+  char fn[200];
+  sprintf(fn, fn_template, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omega);
+  if (proc_rank == 0)
+  {
+    FILE *f = fopen(fn, "w");
+    if (f == NULL)
+      Debug("Error opening error file", 1);
+
+    if (fwrite(errors, sizeof(double), count+1, f) != count+1)
+    {
+      Debug("File write error.", 1);
+      exit(1);
+    }
+    fclose(f);
+  }
+}
+
+void Clean_Up_Problemdata()
 {
   // Debug("Clean_Up", 0);
 
@@ -553,6 +649,18 @@ void Clean_Up()
   free(phi);
   free(source[0]);
   free(source);
+}
+
+void Clean_Up_Metadata()
+{
+  // Debug("Clean_Up_Metadata", 0);
+
+  free(omegas);
+  free(gridsizes);
+  free(iters);
+  free(wtimes);
+  free(cpu_util);
+
 }
 
 void Setup_MPI_Datatypes()
@@ -597,15 +705,6 @@ int main(int argc, char **argv)
 
   for (grid_size_idx; grid_size_idx < grid_length; grid_size_idx++)
   {
-    // gridsize[X_DIR] = gridsizes[g];
-    // gridsize[Y_DIR] = gridsizes[g];
-
-    // MPI_Barrier(grid_comm);
-    // MPI_Bcast(&gridsize, 2, MPI_INT, 0, grid_comm);
-    // MPI_Bcast(&precision_goal, 1, MPI_DOUBLE, 0, grid_comm);
-    // MPI_Bcast(&max_iter, 1, MPI_INT, 0, grid_comm);
-    // MPI_Barrier(grid_comm);
-
     for (int i = 0; i < omega_length; i++)
     {
       omega = omegas[i];
@@ -620,11 +719,16 @@ int main(int argc, char **argv)
 
       stop_timer();
 
-      // print_timer();
+      // print_timer(); // stops timer and affects the benchmarking
 
-      if (omega_optimal == 0) // only write grid if we are not testing omega optimality
+      if (write_output_flag) // prevent unnecessary writes
       {
         Write_Grid();
+      }
+
+      if (track_errors)
+      {
+        Error_Analysis();
       }
 
       // benchmarking
@@ -634,11 +738,16 @@ int main(int argc, char **argv)
 
       MPI_Barrier(grid_comm);
       
-      Clean_Up();
+      Clean_Up_Problemdata();
     }
 
+    MPI_Barrier(grid_comm);
+
     Benchmark();
+
   }
+
+  // Clean_Up_Metadata();
 
   MPI_Finalize();
 
