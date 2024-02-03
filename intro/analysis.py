@@ -39,11 +39,13 @@ fig, ax = plt.subplots()
 ax.set_title("Ping Pong Times")
 ax.set_xlabel("Message Size (bytes)")
 ax.set_ylabel("Time (s)")
+ax.set_xscale("log")
+# ax.set_yscale("log")
 ax.grid(True)
 
 for i in range(len(pingPongTimes)):
-    x = pingPongTimes[i, :, 0]
-    y = pingPongTimes[i, :, 1]
+    x = pingPongTimes[i, 1:, 0]
+    y = pingPongTimes[i, 1:, 1]
 
     lines = ax.plot(
         x,
