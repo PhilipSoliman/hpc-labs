@@ -26,9 +26,9 @@ double precision_goal = 0.0001; /* precision_goal of solution */
 int max_iter = 5000;            /* maximum number of iterations alowed */
 MPI_Datatype border_type[2];    /* Datatypes for vertical and horizontal exchange */
 int *gridsizes;
-int grid_length;
+int grid_length = 1;
 int grid_size_idx = 0;
-int write_output_flag = 0;
+// char fn_template[] = "%s/procg=%ix%i__gs=%ix%i_wl=%3.2f_wh=%3.2f_nomega=%i_swpl=%i_swph=%i_eloop=%i_%s.dat";
 
 /* process specific variables */
 int proc_rank;                                    /* process rank and number of ranks */
@@ -55,14 +55,38 @@ double **phi; /* grid */
 int **source; /* TRUE if subgrid element is a source */
 int dim[2];   /* grid dimensions */
 
+/* toggles */
+int benchmark_flag = 0;
+int error_flag = 0;
+int track_errors = 0;
+int write_output_flag = 0;
+int efficient_loop_flag = 1;
+int latency_flag = 0;
+
 /* relaxation paramater */
 double omega;
 double *omegas;
-int omega_length;
+// omegas = malloc(sizeof(double));
+// omegas[0] = 1.95;
+int omega_length = 1;
 
 /* error array*/
 double *errors;
-int track_errors = 0;
+
+/* sweep array */
+int sweep;
+int *sweeps;
+// sweeps = malloc(sizeof(int));
+// sweeps[0] = 1;
+int **iters_sweep_vs_omega;
+int sweep_length = 1;
+
+/* latency analysis */
+double latency;
+double *latencies;
+double byte;
+double *bytes;
+int latency_length;
 
 /* function declarations */
 void Setup_Grid();
@@ -74,6 +98,9 @@ double Do_Step(int parity);
 void Solve();
 void Write_Grid();
 void Benchmark();
+void Error_Analysis();
+void Sweep_Analysis();
+void Latency_Analysis();
 void Clean_Up_Problemdata();
 void Clean_Up_Metadata();
 void Debug(char *mesg, int terminate);
@@ -81,6 +108,7 @@ void start_timer();
 void resume_timer();
 void stop_timer();
 void print_timer();
+void generate_fn(char *fn, char *folder, char *type);
 
 void start_timer()
 {
@@ -127,6 +155,14 @@ void print_timer()
     printf("(%i) Elapsed Wtime %14.6f s (%5.1f%% CPU)\n",
            proc_rank, wtime, 100.0 * ticks * (1.0 / CLOCKS_PER_SEC) / wtime);
   }
+}
+
+void generate_fn(char *fn, char *folder, char *type)
+{
+  char fn_template[] = "%s/procg=%ix%i__gs=%ix%i_wl=%3.2f_wh=%3.2f_nomega=%i_swpl=%i_swph=%i_eloop=%i_%s.dat";
+  sprintf(fn, fn_template, folder, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR],
+          gridsize[Y_DIR], omegas[0], omegas[omega_length - 1], omega_length,
+          sweeps[0], sweeps[sweep_length - 1], efficient_loop_flag, type);
 }
 
 void Debug(char *mesg, int terminate)
@@ -293,6 +329,19 @@ void Get_CLIs(int argc, char **argv)
   l = 0;
   double omega_start, omega_end, omega_step;
   int grid_start, grid_end, grid_step;
+  int sweep_start, sweep_end, sweep_step;
+
+  // default values (in case no CLI args are specified)
+  gridsizes = malloc(sizeof(int));
+  gridsizes[0] = 100;
+  grid_length = 1;
+  omegas = malloc(sizeof(double));
+  omegas[0] = 1.95;
+  omega_length = 1;
+  sweeps = malloc(sizeof(int));
+  sweeps[0] = 1;
+  sweep_length = 1;
+
   if (argc > 3)
   {
     while (l < argc)
@@ -335,7 +384,7 @@ void Get_CLIs(int argc, char **argv)
         grid_start = atoi(argv[l + 1]);
         grid_end = atoi(argv[l + 2]);
         grid_step = atoi(argv[l + 3]);
-        grid_length = (int)((grid_end - grid_start) / grid_step) + 1;
+        grid_length = ((grid_end - grid_start) / grid_step) + 1;
         if (grid_start < 0 || grid_end < 0 || grid_step < 0)
           Debug("ERROR Grid values outside range [0,inf]", 1);
         gridsizes = malloc(grid_length * sizeof(int));
@@ -383,18 +432,87 @@ void Get_CLIs(int argc, char **argv)
         }
       }
 
+      if (strcmp(argv[l], "-benchmark") == 0)
+      {
+        if (strcmp(argv[l + 1], "true") == 0)
+        {
+          printf("(%i) Benchmarking\n", proc_rank);
+          benchmark_flag = 1;
+        }
+        else if (strcmp(argv[l + 1], "false") == 0)
+        {
+          printf("(%i) Not benchmarking\n", proc_rank);
+          benchmark_flag = 0;
+        }
+        else
+        {
+          printf("(%i) Invalid benchmarking flag, no benchmarking will be done\n", proc_rank);
+          benchmark_flag = 0;
+        }
+      }
+
+      if (strcmp(argv[l], "-sweeps") == 0)
+      {
+        printf("(%i) Using sweep values from command line\n", proc_rank);
+        sweep_start = atoi(argv[l + 1]);
+        sweep_end = atoi(argv[l + 2]);
+        sweep_step = atoi(argv[l + 3]);
+        sweep_length = (int)((sweep_end - sweep_start) / sweep_step) + 1;
+        sweeps = malloc(sweep_length * sizeof(int));
+        if (sweep_start < 0 || sweep_end < 0 || sweep_step < 0)
+        {
+          Debug("ERROR Sweep values outside range [0,inf]", 1);
+        }
+        for (i = 0; i < sweep_length; i++)
+        {
+          sweeps[i] = sweep_start + i * sweep_step;
+        }
+      }
+
+      if (strcmp(argv[l], "-efficient_loop") == 0)
+      {
+        if (strcmp(argv[l + 1], "true") == 0)
+        {
+          printf("(%i) Using efficient loop\n", proc_rank);
+          efficient_loop_flag = 1;
+        }
+        else if (strcmp(argv[l + 1], "false") == 0)
+        {
+          printf("(%i) Using inefficient loop\n", proc_rank);
+          efficient_loop_flag = 0;
+        }
+        else
+        {
+          printf("(%i) Invalid efficient loop flag, using efficient loop\n", proc_rank);
+          efficient_loop_flag = 1;
+        }
+      }
+
+      if (strcmp(argv[l], "-latency") == 0)
+      {
+        if (strcmp(argv[l + 1], "true") == 0)
+        {
+          printf("(%i) Latency analysis\n", proc_rank);
+          latency_flag = 1;
+        }
+        else if (strcmp(argv[l + 1], "false") == 0)
+        {
+          printf("(%i) Not doing latency analysis\n", proc_rank);
+          latency_flag = 0;
+        }
+        else
+        {
+          printf("(%i) Invalid latency flag, no latency analysis will be done\n", proc_rank);
+          latency_flag = 0;
+        }
+      }
+
       l++;
     }
   }
   else
   {
     printf("(%i) No CLI args specified, using default values for grid size and omega\n", proc_rank);
-    omegas = malloc(sizeof(double));
-    omegas[0] = 1.95;
-    omega_length = 1;
-    gridsizes = malloc(sizeof(int));
-    gridsizes[0] = 100;
-    grid_length = 1;
   }
 }
 
@@ -403,17 +521,43 @@ double Do_Step(int parity)
   int x, y;
   double old_phi;
   double max_err = 0.0;
+  int x_parity;
 
   /* calculate interior of grid */
-  for (x = 1; x < dim[X_DIR] - 1; x++)
-    for (y = 1; y < dim[Y_DIR] - 1; y++)
-      if ((offset[X_DIR] + x + offset[Y_DIR] + y) % 2 == parity && source[x][y] != 1)
+  if (efficient_loop_flag)
+  {
+    for (x = 1; x < dim[X_DIR] - 1; x++)
+    {
+      x_parity = (x + offset[X_DIR] + offset[Y_DIR] + parity) % 2;
+      for (y = 1 + x_parity; y < dim[Y_DIR] - 1; y += 2)
       {
-        old_phi = phi[x][y];
-        phi[x][y] = (1 - omega) * phi[x][y] + omega * (phi[x + 1][y] + phi[x - 1][y] + phi[x][y + 1] + phi[x][y - 1]) * 0.25;
-        if (max_err < fabs(old_phi - phi[x][y]))
-          max_err = fabs(old_phi - phi[x][y]);
+        // if ((offset[X_DIR] + x + offset[Y_DIR] + y) % 2 == parity && source[x][y] != 1)
+        if (source[x][y] != 1)
+        {
+          old_phi = phi[x][y];
+          phi[x][y] = (1 - omega) * phi[x][y] + omega * (phi[x + 1][y] + phi[x - 1][y] + phi[x][y + 1] + phi[x][y - 1]) * 0.25;
+          if (max_err < fabs(old_phi - phi[x][y]))
+            max_err = fabs(old_phi - phi[x][y]);
+        }
       }
+    }
+  }
+  else // use inefficient/naive loop over all grid points
+  {
+    for (x = 1; x < dim[X_DIR] - 1; x++)
+    {
+      for (y = 1; y < dim[Y_DIR] - 1; y++)
+      {
+        if ((offset[X_DIR] + x + offset[Y_DIR] + y) % 2 == parity && source[x][y] != 1)
+        {
+          old_phi = phi[x][y];
+          phi[x][y] = (1 - omega) * phi[x][y] + omega * (phi[x + 1][y] + phi[x - 1][y] + phi[x][y + 1] + phi[x][y - 1]) * 0.25;
+          if (max_err < fabs(old_phi - phi[x][y]))
+            max_err = fabs(old_phi - phi[x][y]);
+        }
+      }
+    }
+  }
 
   return max_err;
 }
@@ -436,16 +580,26 @@ void Solve()
   }
   while (global_delta > precision_goal && count < max_iter)
   {
-    // Debug("Do_Step 0", 0);
+    if (latency_flag)
+    {
+      latency = 0.0;
+      byte = 0.0;
+    }
+
     delta1 = Do_Step(0);
     Exchange_Borders();
 
-    // Debug("Do_Step 1", 0);
+    MPI_Barrier(grid_comm);
+
     delta2 = Do_Step(1);
     Exchange_Borders();
 
     delta = max(delta1, delta2);
-    MPI_Allreduce(&delta, &global_delta, 1, MPI_DOUBLE, MPI_MAX, grid_comm);
+
+    if (count % sweep == 0)
+    {
+      MPI_Allreduce(&delta, &global_delta, 1, MPI_DOUBLE, MPI_MAX, grid_comm);
+    }
 
     count++;
 
@@ -453,6 +607,17 @@ void Solve()
     {
       errors = realloc(errors, (count + 1) * sizeof(double));
       errors[count] = global_delta;
+    }
+
+    if (latency_flag)
+    {
+      latencies[count - 1] = latency;
+      bytes[count - 1] = byte;
+      if ((latencies = realloc(latencies, (count + 1) * sizeof(double))) == NULL)
+        Debug("Solve : realloc(latencies) failed", 1);
+      if ((bytes = realloc(bytes, (count + 1) * sizeof(double))) == NULL)
+        Debug("Solve : realloc(bytes) failed", 1);
+      latency_length = count;
     }
   }
 
@@ -477,10 +642,9 @@ void Write_Grid()
       for (y = 0; y < gridsize[Y_DIR]; y++)
         out[x][y] = 0.0;
 
-
-    char fn_template[] = "output/procg=%ix%i__gs=%ix%i_omega=%3.2f.dat";
     char fn[200];
-    sprintf(fn, fn_template, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omega);
+    // sprintf(fn, fn_template, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omega);
+    generate_fn(fn, "output", "phi");
     if ((f = fopen(fn, "w")) == NULL)
       Debug("Write_Grid : fopen failed", 1);
 
@@ -495,7 +659,7 @@ void Write_Grid()
       for (x = 1; x < dim[X_DIR] - 1; x++)
         for (y = 1; y < dim[Y_DIR] - 1; y++)
           out[offset[X_DIR] + x][offset[Y_DIR] + y] = phi[x][y];
-          // fprintf(f, "%i %i %f\n", offset[X_DIR] + x, offset[Y_DIR] + y, phi[x][y]);
+      // fprintf(f, "%i %i %f\n", offset[X_DIR] + x, offset[Y_DIR] + y, phi[x][y]);
     }
 
     if (fwrite(out[0], sizeof(double), gridsize[X_DIR] * gridsize[Y_DIR], f) != gridsize[X_DIR] * gridsize[Y_DIR])
@@ -571,9 +735,10 @@ void Benchmark()
 
   if (proc_rank == 0)
   {
-    char fn_template[] = "ppoisson_times/procg=%ix%i__gs=%ix%i_wl=%3.2f_wh=%3.2f_nomega=%i_times.dat";
+    // char fn_template[] = "ppoisson_times/procg=%ix%i__gs=%ix%i_wl=%3.2f_wh=%3.2f_nomega=%i_times.dat";
     char fn[200];
-    sprintf(fn, fn_template, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omegas[0], omegas[omega_length - 1], omega_length);
+    // sprintf(fn, fn_template, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omegas[0], omegas[omega_length - 1], omega_length);
+    generate_fn(fn, "ppoisson_times", "times");
     FILE *f = fopen(fn, "w");
     if (f == NULL)
       Debug("Error opening benchmark file", 1);
@@ -585,12 +750,10 @@ void Benchmark()
     }
     fclose(f);
 
-
     //  save omega values to file
-    char fn_template2[] = "ppoisson_times/procg=%ix%i__gs=%ix%i_wl=%3.2f_wh=%3.2f_nomega=%i_omegas.dat";
-    char fn2[200];
-    sprintf(fn2, fn_template2, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omegas[0], omegas[omega_length - 1], omega_length);
-    FILE *f2 = fopen(fn2, "w");
+    generate_fn(fn, "ppoisson_times", "omegas");
+    // sprintf(fn2, fn_template2, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omegas[0], omegas[omega_length - 1], omega_length);
+    FILE *f2 = fopen(fn, "w");
     if (f2 == NULL)
       Debug("Error opening benchmark file", 1);
 
@@ -603,10 +766,11 @@ void Benchmark()
     fclose(f2);
 
     //  save iters to file
-    char fn_template3[] = "ppoisson_times/procg=%ix%i__gs=%ix%i_wl=%3.2f_wh=%3.2f_nomega=%i_iters.dat";
-    char fn3[200];
-    sprintf(fn3, fn_template3, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omegas[0], omegas[omega_length - 1], omega_length);
-    FILE *f3 = fopen(fn3, "w");
+    // char fn_template3[] = "ppoisson_times/procg=%ix%i__gs=%ix%i_wl=%3.2f_wh=%3.2f_nomega=%i_iters.dat";
+    // char fn3[200];
+    // sprintf(fn3, fn_template3, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omegas[0], omegas[omega_length - 1], omega_length);
+    generate_fn(fn, "ppoisson_times", "iters");
+    FILE *f3 = fopen(fn, "w");
     if (f3 == NULL)
       Debug("Error opening benchmark file", 1);
 
@@ -623,21 +787,132 @@ void Benchmark()
 void Error_Analysis()
 {
   // Debug("Error_Analysis", 0);
-  char fn_template[] = "error_analysis/procg=%ix%i__gs=%ix%i_omega=%3.2f.dat";
+  // char fn_template[] = "error_analysis/procg=%ix%i__gs=%ix%i_omega=%3.2f.dat";
   char fn[200];
-  sprintf(fn, fn_template, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omega);
+  generate_fn(fn, "error_analysis", "");
+  // sprintf(fn, fn_template, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omega);
   if (proc_rank == 0)
   {
     FILE *f = fopen(fn, "w");
     if (f == NULL)
       Debug("Error opening error file", 1);
 
-    if (fwrite(errors, sizeof(double), count+1, f) != count+1)
+    if (fwrite(errors, sizeof(double), count + 1, f) != count + 1)
     {
       Debug("File write error.", 1);
       exit(1);
     }
     fclose(f);
+  }
+}
+
+void Sweep_Analysis()
+{
+  int sweep_vs_omega_size;
+  // Debug("Sweep_Analysis", 0);
+  if (proc_rank == 0)
+  {
+    char fn[200];
+    generate_fn(fn, "sweep_analysis", "iters");
+    FILE *f = fopen(fn, "w");
+    if (f == NULL)
+      Debug("Error opening sweep file", 1);
+
+    if (fwrite(iters_sweep_vs_omega, sizeof(int), sweep_vs_omega_size, f) != sweep_vs_omega_size)
+    {
+      Debug("File write error.", 1);
+      exit(1);
+    }
+    fclose(f);
+  }
+}
+
+void Latency_Analysis()
+{
+  // Debug("Latency_Analysis", 0);
+  // TODO: fix this function
+  double ***out; // holds latencies, bytes per process shape =  2 x P X latency_length
+  int out_size, i, j, p;
+
+  if (proc_rank == 0)
+  {
+
+    out_size = 2 * P * latency_length;
+    out = malloc(2 * sizeof(double **) * P);
+    for (i = 0; i < 2 * P; i++)
+    {
+      out[i] = malloc(P * sizeof(double *) * latency_length);
+      for (j = 0; j < P; j++)
+      {
+        out[i][j] = malloc(latency_length * sizeof(double) * 2);
+      }
+    }
+
+    // initialise out
+    for (i = 0; i < 2 * P; i++)
+    {
+      for (j = 0; j < P; j++)
+      {
+        for (p = 0; p < latency_length; p++)
+        {
+          out[i][j][p] = 0.0;
+        }
+      }
+    }
+
+    for (i = 0; i < latency_length; i++)
+    {
+      out[0][0][i] = latencies[i];
+      out[1][0][i] = bytes[i];
+    }
+  }
+
+  MPI_Barrier(grid_comm); // wait for all root process to allocate memory
+
+  // gather latencies
+  if (proc_rank == 0)
+  {
+    for (p = 1; p < P; p++)
+    {
+      MPI_Recv(&out[0][p][0], latency_length, MPI_DOUBLE, p, 0, grid_comm, &status);
+    }
+  }
+
+  if (proc_rank != 0)
+  {
+    MPI_Send(latencies, latency_length, MPI_DOUBLE, 0, 0, grid_comm);
+  }
+
+  MPI_Barrier(grid_comm);
+
+  // gather bytes
+  if (proc_rank == 0)
+  {
+    for (p = 1; p < P; p++)
+    {
+      MPI_Recv(&out[1][p][0], latency_length, MPI_DOUBLE, p, 1, grid_comm, &status);
+    }
+  }
+  else
+  {
+    MPI_Send(bytes, latency_length, MPI_DOUBLE, 0, 1, grid_comm);
+  }
+
+  MPI_Barrier(grid_comm);
+
+  if (proc_rank == 0)
+  {
+    char fn[200];
+    generate_fn(fn, "latency_analysis", "");
+    FILE *f = fopen(fn, "w");
+    if (f == NULL)
+      Debug("Error opening latency file", 1);
+
+    if (fwrite(out, sizeof(double), out_size, f) != out_size)
+    {
+      Debug("File write error.", 1);
+      exit(1);
+    }
   }
 }
 
@@ -660,7 +935,6 @@ void Clean_Up_Metadata()
   free(iters);
   free(wtimes);
   free(cpu_util);
-
 }
 
 void Setup_MPI_Datatypes()
@@ -680,17 +954,61 @@ void Setup_MPI_Datatypes()
 
 void Exchange_Borders()
 {
-  //   // Debug("Exchange_Borders", 0);
-  MPI_Sendrecv(&phi[1][1], 1, border_type[Y_DIR], proc_top, 0,
-               &phi[1][dim[Y_DIR] - 1], 1, border_type[Y_DIR], proc_bottom, 0, grid_comm, &status); /*  all  traffic in direction "top"        */
-  MPI_Sendrecv(&phi[1][dim[Y_DIR] - 2], 1, border_type[Y_DIR], proc_bottom, 0,
-               &phi[1][0], 1, border_type[Y_DIR], proc_top, 0, grid_comm, &status); /*  all  traffic in direction "bottom"        */
-  MPI_Sendrecv(&phi[1][1], 1, border_type[X_DIR], proc_left, 0,
-               &phi[dim[X_DIR] - 1][1], 1, border_type[X_DIR], proc_right, 0, grid_comm, &status); /* all traffic in direction "left" */
-  MPI_Sendrecv(&phi[dim[X_DIR] - 2][1], 1, border_type[X_DIR], proc_right, 0,
-               &phi[0][1], 1, border_type[X_DIR], proc_left, 0, grid_comm, &status); /* all traffic in the direction "right" */
-}
+  // Debug("Exchange_Borders", 0);
+  double latency_start;
+  double bytes_sent, bytes_received;
 
+  if (latency_flag)
+  {
+    // top to bottom and bottom to top exchange
+    MPI_Barrier(grid_comm);
+    latency_start = MPI_Wtime();
+    MPI_Sendrecv(&phi[1][1], 1, border_type[Y_DIR], proc_top, 0,
+                 &phi[1][dim[Y_DIR] - 1], 1, border_type[Y_DIR], proc_bottom, 0, grid_comm, &status);
+    if (proc_top > 0)
+    {
+      latency += MPI_Wtime() - latency_start;
+      byte += 2 * (dim[Y_DIR] - 2) * sizeof(double);
+    }
+    latency_start = MPI_Wtime();
+    MPI_Sendrecv(&phi[1][dim[Y_DIR] - 2], 1, border_type[Y_DIR], proc_bottom, 0,
+                 &phi[1][0], 1, border_type[Y_DIR], proc_top, 0, grid_comm, &status); /*  all  traffic in direction "bottom"        */
+    if (proc_bottom > 0)
+    {
+      latency += MPI_Wtime() - latency_start;
+      byte += 2 * (dim[Y_DIR] - 2) * sizeof(double);
+    }
+    // left to right and right to left exchange
+    MPI_Barrier(grid_comm);
+    latency_start = MPI_Wtime();
+    MPI_Sendrecv(&phi[1][1], 1, border_type[X_DIR], proc_left, 0,
+                 &phi[dim[X_DIR] - 1][1], 1, border_type[X_DIR], proc_right, 0, grid_comm, &status); /* all traffic in direction "left" */
+    if (proc_left > 0)
+    {
+      latency += MPI_Wtime() - latency_start;
+      byte += 2 * (dim[X_DIR] - 2) * sizeof(double);
+    }
+    latency_start = MPI_Wtime();
+    MPI_Sendrecv(&phi[dim[X_DIR] - 2][1], 1, border_type[X_DIR], proc_right, 0,
+                 &phi[0][1], 1, border_type[X_DIR], proc_left, 0, grid_comm, &status); /* all traffic in the direction "right" */
+    if (proc_right > 0)
+    {
+      latency += MPI_Wtime() - latency_start;
+      byte += 2 * (dim[X_DIR] - 2) * sizeof(double);
+    }
+  }
+  else
+  {
+    MPI_Sendrecv(&phi[1][1], 1, border_type[Y_DIR], proc_top, 0,
+                 &phi[1][dim[Y_DIR] - 1], 1, border_type[Y_DIR], proc_bottom, 0, grid_comm, &status);
+    MPI_Sendrecv(&phi[1][dim[Y_DIR] - 2], 1, border_type[Y_DIR], proc_bottom, 0,
+                 &phi[1][0], 1, border_type[Y_DIR], proc_top, 0, grid_comm, &status);
+    MPI_Sendrecv(&phi[1][1], 1, border_type[X_DIR], proc_left, 0,
+                 &phi[dim[X_DIR] - 1][1], 1, border_type[X_DIR], proc_right, 0, grid_comm, &status);
+    MPI_Sendrecv(&phi[dim[X_DIR] - 2][1], 1, border_type[X_DIR], proc_right, 0,
+                 &phi[0][1], 1, border_type[X_DIR], proc_left, 0, grid_comm, &status);
+  }
+}
 int main(int argc, char **argv)
 {
   MPI_Init(&argc, &argv);
@@ -702,52 +1020,80 @@ int main(int argc, char **argv)
   iters = malloc(omega_length * sizeof(int));
   wtimes = malloc(omega_length * sizeof(double));
   cpu_util = malloc(omega_length * sizeof(double));
+  iters_sweep_vs_omega = malloc(sweep_length * sizeof(int *));
+  for (int i = 0; i < sweep_length; i++)
+  {
+    iters_sweep_vs_omega[i] = malloc(omega_length * sizeof(int));
+  }
+
+  if (latency_flag)
+  {
+    latencies = malloc(sizeof(double));
+    bytes = malloc(sizeof(double));
+  }
 
   for (grid_size_idx; grid_size_idx < grid_length; grid_size_idx++)
   {
-    for (int i = 0; i < omega_length; i++)
+    for (int j = 0; j < sweep_length; j++)
     {
-      omega = omegas[i];
-
-      Setup_Grid();
-
-      Setup_MPI_Datatypes();
-
-      start_timer();
-
-      Solve();
-
-      stop_timer();
-
-      // print_timer(); // stops timer and affects the benchmarking
-
-      if (write_output_flag) // prevent unnecessary writes
+      sweep = sweeps[j];
+      for (int i = 0; i < omega_length; i++)
       {
-        Write_Grid();
-      }
+        omega = omegas[i];
 
-      if (track_errors)
-      {
-        Error_Analysis();
-      }
+        Setup_Grid();
 
-      // benchmarking
-      iters[i] = count;
-      wtimes[i] = wtime;
-      cpu_util[i] = 100.0 * ticks * (1.0 / CLOCKS_PER_SEC) / wtime;
+        Setup_MPI_Datatypes();
+
+        start_timer();
+
+        Solve();
+
+        stop_timer();
+
+        if (write_output_flag)
+        {
+          Write_Grid();
+        }
+
+        if (track_errors)
+        {
+          Error_Analysis();
+        }
+
+        if (latency_flag)
+        {
+          Latency_Analysis();
+        }
+
+        // benchmarking
+        iters[i] = count;
+        wtimes[i] = wtime;
+        cpu_util[i] = 100.0 * ticks * (1.0 / CLOCKS_PER_SEC) / wtime;
+
+        MPI_Barrier(grid_comm);
+
+        Clean_Up_Problemdata();
+      }
 
       MPI_Barrier(grid_comm);
-      
-      Clean_Up_Problemdata();
+
+      if (benchmark_flag)
+      {
+        Benchmark();
+      }
+
+      if (proc_rank == 0)
+      {
+        iters_sweep_vs_omega[j] = iters;
+      }
     }
 
-    MPI_Barrier(grid_comm);
-
-    Benchmark();
-
+    if (sweep_length > 1)
+    {
+      Sweep_Analysis();
+    }
   }
-
-  // Clean_Up_Metadata();
 
   MPI_Finalize();
 

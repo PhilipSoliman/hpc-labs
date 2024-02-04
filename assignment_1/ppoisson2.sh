@@ -2,7 +2,7 @@
 #
 #SBATCH --job-name="ppoisson2"
 #SBATCH --partition=compute
-#SBATCH --time=0:00:60
+#SBATCH --time=0:10:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=4
 #SBATCH --cpus-per-task=1
@@ -18,4 +18,4 @@ module load openmpi
 cd ~/HPC/hpc-labs/assignment_1/
 
 mpicc ppoisson2.c -o ppoisson2.x
-srun ppoisson2.x 1 4 -omega 1.95 -grid 800 -errors true -output false
+srun ppoisson2.x 2 2 -omega 1.95 -grid 100 1000 100 -output false -latency true -benchmark false
