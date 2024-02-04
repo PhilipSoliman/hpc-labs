@@ -6,6 +6,11 @@
 
 # executable files
 **.x
+**.o
+
+# ignore input data files in assignmnent 2 (assuming number of processors does not exceed 100)
+**/input/input[0-99]*-[0-99]*.dat
+**/input/mapping[0-99]*.dat 
 
 # virtual environment
 **/.venv
