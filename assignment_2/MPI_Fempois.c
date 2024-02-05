@@ -16,6 +16,7 @@
 
 #define INPUT_FOLDER "input"
 #define OUTPUT_FOLDER "output"
+#define BENCHMARK_FOLDER "benchmark"
 
 #define MAXCOL 20
 
@@ -41,11 +42,21 @@ int P;                 /* total number of processes */
 int P_grid[2];         /* processgrid dimensions */
 MPI_Comm grid_comm;    /* grid COMMUNICATOR */
 MPI_Status status;
+int N_vert_total = 0;
+int grid_size[2];
+int do_adapt = 0; /* flag for adaptive refinement */
 
 /* benchmark related variables */
 clock_t ticks;    /* number of systemticks */
 double wtime;     /* wallclock time */
 int timer_on = 0; /* is timer running? */
+double arbitrary_time;
+double computation_time = 0.0;
+double exchange_time = 0.0;
+double communication_time = 0.0;
+double idle_time = 0.0;
+double io_time = 0.0;
+double total_time = 0.0;
 
 /* local process related variables */
 int proc_rank;           /* rank of current process */
@@ -69,12 +80,14 @@ void Setup_MPI_Datatypes(FILE *f);
 void Exchange_Borders(double *vect);
 void Solve();
 void Write_Grid();
+void Benchmark();
 void Clean_Up();
 void Debug(char *mesg, int terminate);
 void start_timer();
 void resume_timer();
 void stop_timer();
 void print_timer();
+void generate_filename(char *fn, char *folder, char *type);
 
 void start_timer()
 {
@@ -117,7 +130,7 @@ void print_timer()
     resume_timer();
   }
   else
-    printf("(%i) Elapsed Wtime: %14.6f s (%5.1f%% CPU)\n",
+    printf("(%i) Elapsed Wtime:   %1.6f s (%5.1f%% CPU)\n",
            proc_rank, wtime, 100.0 * ticks * (1.0 / CLOCKS_PER_SEC) / wtime);
 }
 
@@ -130,6 +143,13 @@ void Debug(char *mesg, int terminate)
     MPI_Abort(MPI_COMM_WORLD, 1);
     exit(1);
   }
+}
+
+void generate_filename(char *fn, char *folder, char *type)
+{
+  sprintf(fn, "%s/nproc=%i_procg=%ix%i_grid=%ix%i_nvert=%i_adapt=%i_%s.dat",
+          folder, P, P_grid[0], P_grid[1], grid_size[0], grid_size[1],
+          N_vert, do_adapt, type);
 }
 
 void Setup_Proc_Grid()
@@ -149,6 +169,7 @@ void Setup_Proc_Grid()
   /* Create process topology (Graph) */
   if (proc_rank == 0)
   {
+    arbitrary_time = MPI_Wtime();
     sprintf(filename, "%s/mapping%i.dat", INPUT_FOLDER, P);
     if ((f = fopen(filename, "r")) == NULL)
       Debug("My_MPI_Init : Can't open mapping inputfile", 1);
@@ -157,6 +178,7 @@ void Setup_Proc_Grid()
     fscanf(f, "N_proc : %i\n%*[^\n]\n", &N_nodes);
     if (N_nodes != P)
       Debug("My_MPI_Init : Mismatch of number of processes in mapping inputfile", 1);
+    io_time += MPI_Wtime() - arbitrary_time;
   }
   else
     N_nodes = P;
@@ -166,11 +188,15 @@ void Setup_Proc_Grid()
 
   if (proc_rank == 0)
   {
+    arbitrary_time = MPI_Wtime();
     for (i = 0; i < N_nodes; i++)
       fscanf(f, "%i\n", &index[i]);
+    io_time += MPI_Wtime() - arbitrary_time;
   }
 
+  arbitrary_time = MPI_Wtime();
   MPI_Bcast(index, N_nodes, MPI_INT, 0, MPI_COMM_WORLD);
+  communication_time += MPI_Wtime() - arbitrary_time;
 
   N_edges = index[N_nodes - 1];
   if (N_edges > 0)
@@ -184,14 +210,18 @@ void Setup_Proc_Grid()
 
   if (proc_rank == 0)
   {
+    arbitrary_time = MPI_Wtime();
     fscanf(f, "%*[^\n]\n"); /* skip a line of the file */
     for (i = 0; i < N_edges; i++)
       fscanf(f, "%i\n", &edges[i]);
 
     fclose(f);
+    io_time += MPI_Wtime() - arbitrary_time;
   }
 
+  arbitrary_time = MPI_Wtime();
   MPI_Bcast(edges, N_edges, MPI_INT, 0, MPI_COMM_WORLD);
+  communication_time += MPI_Wtime() - arbitrary_time;
 
   reorder = 1;
   MPI_Graph_create(MPI_COMM_WORLD, N_nodes, index, edges, reorder, &grid_comm);
@@ -217,21 +247,41 @@ void Setup_Grid()
   /* read general parameters (precision/max_iter) */
   if (proc_rank == 0)
   {
+    arbitrary_time = MPI_Wtime();
     sprintf(filename, "%s/input.dat", INPUT_FOLDER);
     if ((f = fopen(filename, "r")) == NULL)
       Debug("Setup_Grid : Can't open input.dat", 1);
     fscanf(f, "precision goal: %lf\n", &precision_goal);
     fscanf(f, "max iterations: %i", &max_iter);
     fclose(f);
+
+    sprintf(filename, "%s/gridsize.dat", INPUT_FOLDER);
+    if ((f = fopen(filename, "r")) == NULL)
+      Debug("Setup_Grid : Can't open gridsize.dat", 1);
+    fscanf(f, "gridsize: %ix%i\n", &grid_size[0], &grid_size[1]);
+    fscanf(f, "P_grid: %ix%i\n", &P_grid[0], &P_grid[1]);
+    fscanf(f, "adapt: %i", &do_adapt);
+    fclose(f);
+    io_time += MPI_Wtime() - arbitrary_time;
   }
+
+  arbitrary_time = MPI_Wtime();
   MPI_Bcast(&precision_goal, 1, MPI_DOUBLE, 0, grid_comm);
   MPI_Bcast(&max_iter, 1, MPI_INT, 0, grid_comm);
+  communication_time += MPI_Wtime() - arbitrary_time;
 
   /* read process specific data */
+  arbitrary_time = MPI_Wtime();
   sprintf(filename, "%s/input%i-%i.dat", INPUT_FOLDER, P, proc_rank);
   if ((f = fopen(filename, "r")) == NULL)
     Debug("Setup_Grid : Can't open data inputfile", 1);
   fscanf(f, "N_vert: %i\n%*[^\n]\n", &N_vert);
+  io_time += MPI_Wtime() - arbitrary_time;
+
+  /* get total number of vertices*/
+  arbitrary_time = MPI_Wtime();
+  MPI_Allreduce(&N_vert, &N_vert_total, 1, MPI_INT, MPI_SUM, grid_comm);
+  communication_time += MPI_Wtime() - arbitrary_time;
 
   /* allocate memory for phi and A */
   if ((vert = malloc(N_vert * sizeof(Vertex))) == NULL)
@@ -254,25 +304,37 @@ void Setup_Grid()
     A[i].Ncol = 0;
 
   /* Read all values */
+  arbitrary_time = MPI_Wtime();
   for (i = 0; i < N_vert; i++)
   {
     fscanf(f, "%i", &v);
     fscanf(f, "%lf %lf %i %lf\n", &vert[v].x, &vert[v].y,
            &vert[v].type, &phi[v]);
   }
+  io_time += MPI_Wtime() - arbitrary_time;
 
   /* build matrix from elements */
+  arbitrary_time = MPI_Wtime();
   fscanf(f, "N_elm: %i\n%*[^\n]\n", &N_elm);
+  io_time += MPI_Wtime() - arbitrary_time;
   for (i = 0; i < N_elm; i++)
   {
+    arbitrary_time = MPI_Wtime();
     fscanf(f, "%*i"); /* we are not interested in the element-id */
+    io_time += MPI_Wtime() - arbitrary_time;
     for (j = 0; j < 3; j++)
     {
+      arbitrary_time = MPI_Wtime();
       fscanf(f, "%i", &v);
+      io_time += MPI_Wtime() - arbitrary_time;
       element[j] = v;
     }
+    arbitrary_time = MPI_Wtime();
     fscanf(f, "\n");
+    io_time += MPI_Wtime() - arbitrary_time;
+    arbitrary_time = MPI_Wtime();
     Build_ElMatrix(element);
+    computation_time += MPI_Wtime() - arbitrary_time;
   }
 
   Setup_MPI_Datatypes(f);
@@ -361,10 +423,11 @@ void Setup_MPI_Datatypes(FILE *f)
 
   Debug("Setup_MPI_Datatypes", 0);
 
+  arbitrary_time = MPI_Wtime();
   fscanf(f, "Neighbours: %i\n", &N_neighb);
+  io_time += MPI_Wtime() - arbitrary_time;
 
   /* allocate memory */
-
   if (N_neighb > 0)
   {
     if ((proc_neighb = malloc(N_neighb * sizeof(int))) == NULL)
@@ -392,12 +455,16 @@ void Setup_MPI_Datatypes(FILE *f)
   /* read vertices per neighbour */
   for (i = 0; i < N_neighb; i++)
   {
+    arbitrary_time = MPI_Wtime();
     fscanf(f, "from %i :", &proc_neighb[i]);
+    io_time += MPI_Wtime() - arbitrary_time;
     s = 1;
     count = 0;
     while (s == 1)
     {
+      arbitrary_time = MPI_Wtime();
       s = fscanf(f, "%i", &indices[count]);
+      io_time += MPI_Wtime() - arbitrary_time;
 
       if ((s == 1) && !(vert[indices[count]].type & TYPE_SOURCE))
       {
@@ -405,27 +472,37 @@ void Setup_MPI_Datatypes(FILE *f)
       }
     }
 
+    arbitrary_time = MPI_Wtime();
     fscanf(f, "\n");
+    io_time += MPI_Wtime() - arbitrary_time;
     MPI_Type_indexed(count, blocklens, indices, MPI_DOUBLE, &recv_type[i]);
     MPI_Type_commit(&recv_type[i]);
 
+    arbitrary_time = MPI_Wtime();
     fscanf(f, "to %i :", &proc_neighb[i]);
+    io_time += MPI_Wtime() - arbitrary_time;
     s = 1;
     count = 0;
     while (s == 1)
     {
+      arbitrary_time = MPI_Wtime();
       s = fscanf(f, "%i", &indices[count]);
+      io_time += MPI_Wtime() - arbitrary_time;
       if ((s == 1) && !(vert[indices[count]].type & TYPE_SOURCE))
       {
         count++;
       }
     }
+    arbitrary_time = MPI_Wtime();
     fscanf(f, "\n");
+    io_time += MPI_Wtime() - arbitrary_time;
     MPI_Type_indexed(count, blocklens, indices, MPI_DOUBLE, &send_type[i]);
     MPI_Type_commit(&send_type[i]);
   }
 
+  arbitrary_time = MPI_Wtime();
   Sort_MPI_Datatypes();
+  computation_time += MPI_Wtime() - arbitrary_time;
 
   free(blocklens);
   free(indices);
@@ -466,9 +543,12 @@ void Solve()
 
   /* Implementation of the CG algorithm : */
 
+  arbitrary_time = MPI_Wtime();
   Exchange_Borders(phi);
+  exchange_time += MPI_Wtime() - arbitrary_time;
 
   /* r = b-Ax */
+  arbitrary_time = MPI_Wtime();
   for (i = 0; i < N_vert; i++)
   {
     r[i] = 0.0;
@@ -477,15 +557,22 @@ void Solve()
   }
 
   r1 = 2 * precision_goal;
+  computation_time += MPI_Wtime() - arbitrary_time;
   while ((count < max_iter) && (r1 > precision_goal))
   {
     /* r1 = r' * r */
+    arbitrary_time = MPI_Wtime();
     sub = 0.0;
     for (i = 0; i < N_vert; i++)
       if (!(vert[i].type & TYPE_GHOST))
         sub += r[i] * r[i];
-    MPI_Allreduce(&sub, &r1, 1, MPI_DOUBLE, MPI_SUM, grid_comm);
+    computation_time += MPI_Wtime() - arbitrary_time;
 
+    arbitrary_time = MPI_Wtime();
+    MPI_Allreduce(&sub, &r1, 1, MPI_DOUBLE, MPI_SUM, grid_comm);
+    communication_time += MPI_Wtime() - arbitrary_time;
+
+    arbitrary_time = MPI_Wtime();
     if (count == 0)
     {
       /* p = r */
@@ -500,9 +587,14 @@ void Solve()
       for (i = 0; i < N_vert; i++)
         p[i] = r[i] + b * p[i];
     }
+    computation_time += MPI_Wtime() - arbitrary_time;
+
+    arbitrary_time = MPI_Wtime();
     Exchange_Borders(p);
+    exchange_time += MPI_Wtime() - arbitrary_time;
 
     /* q = A * p */
+    arbitrary_time = MPI_Wtime();
     for (i = 0; i < N_vert; i++)
     {
       q[i] = 0;
@@ -515,7 +607,12 @@ void Solve()
     for (i = 0; i < N_vert; i++)
       if (!(vert[i].type & TYPE_GHOST))
         sub += p[i] * q[i];
+    computation_time += MPI_Wtime() - arbitrary_time;
+    arbitrary_time = MPI_Wtime();
     MPI_Allreduce(&sub, &a, 1, MPI_DOUBLE, MPI_SUM, grid_comm);
+    communication_time += MPI_Wtime() - arbitrary_time;
+
+    arbitrary_time = MPI_Wtime();
     a = r1 / a;
 
     /* x = x + a*p */
@@ -525,6 +622,7 @@ void Solve()
     /* r = r - a*q */
     for (i = 0; i < N_vert; i++)
       r[i] -= a * q[i];
+    computation_time += MPI_Wtime() - arbitrary_time;
 
     r2 = r1;
 
@@ -540,8 +638,8 @@ void Solve()
 
 void Write_Grid()
 {
-  int i,j;
-  char filename[50];
+  int i, j;
+  char filename[100];
   FILE *f;
   double **out;
   double *tmp;
@@ -571,6 +669,7 @@ void Write_Grid()
     }
   }
 
+  arbitrary_time = MPI_Wtime();
   sprintf(filename, "%s/nproc=%i_proc=%i.dat", OUTPUT_FOLDER, P, proc_rank);
   if ((f = fopen(filename, "w")) == NULL)
     Debug("Write_Grid : Can't open data outputfile", 1);
@@ -579,6 +678,7 @@ void Write_Grid()
     Debug("Write_Grid : Error during writing", 1);
 
   fclose(f);
+  io_time += MPI_Wtime() - arbitrary_time;
 
   // collect sizes of output files
   int *sizes;
@@ -588,12 +688,14 @@ void Write_Grid()
       Debug("Write_Grid : malloc(sizes) failed", 1);
   }
 
+  arbitrary_time = MPI_Wtime();
   MPI_Gather(&out_size, 1, MPI_INT, sizes, 1, MPI_INT, 0, grid_comm);
+  communication_time += MPI_Wtime() - arbitrary_time;
 
   // combine output files into one on root process
   MPI_Barrier(grid_comm);
   if (proc_rank == 0)
-  { 
+  {
     int read_size;
     int N_vert_total = 0;
     for (i = 0; i < P; i++)
@@ -602,33 +704,38 @@ void Write_Grid()
     // allocate memory for combined file
     if ((tmp = malloc(3 * N_vert_total * sizeof(double))) == NULL)
       Debug("Write_Grid : malloc(tmp) failed", 1);
-  
+
     // gather output
     for (i = 0; i < P; i++)
     {
       out_size = sizes[i];
 
+      arbitrary_time = MPI_Wtime();
       sprintf(filename, "%s/nproc=%i_proc=%i.dat", OUTPUT_FOLDER, P, i);
       printf("filename: %s\n", filename);
       if ((f = fopen(filename, "r")) == NULL)
         Debug("Write_Grid : Can't open data outputfile", 1);
+      io_time += MPI_Wtime() - arbitrary_time;
 
-      read_size = fread(&tmp[3*(out_size - sizes[0])], sizeof(double), 3 * out_size, f);
-      printf("read_size: %d\n", read_size);
-      printf("out_size: %d\n", out_size);
+      read_size = fread(&tmp[3 * (out_size - sizes[0])], sizeof(double), 3 * out_size, f);
+      // printf("read_size: %d\n", read_size);
+      // printf("out_size: %d\n", out_size);
       if (read_size != 3 * out_size)
       {
         Debug("Write_Grid : Error during reading", 1);
       }
-      
+
+      arbitrary_time = MPI_Wtime();
       fclose(f);
+      io_time += MPI_Wtime() - arbitrary_time;
 
       // delete file
       remove(filename);
     }
 
     FILE *f_combined;
-    sprintf(filename, "%s/nproc=%i_nvert=%i_combined.dat", OUTPUT_FOLDER, P, N_vert_total);
+    generate_filename(filename, OUTPUT_FOLDER, "combined");
+    arbitrary_time = MPI_Wtime();
     if ((f_combined = fopen(filename, "w")) == NULL)
       Debug("Write_Grid : Can't open combined data outputfile", 1);
 
@@ -636,6 +743,7 @@ void Write_Grid()
       Debug("Write_Grid : Error during writing", 1);
 
     fclose(f_combined);
+    io_time += MPI_Wtime() - arbitrary_time;
   }
 
   free(out);
@@ -643,6 +751,68 @@ void Write_Grid()
     free(sizes);
 
   MPI_Barrier(grid_comm);
+}
+
+void Benchmark()
+{
+  stop_timer();
+  idle_time = wtime - computation_time - communication_time - io_time - exchange_time;
+  total_time = computation_time + communication_time + idle_time + io_time + exchange_time;
+  printf("(%i) Computation time:    %1.6f (%4.2f\%)\n", proc_rank, computation_time, 100.0 * computation_time / total_time);
+  printf("(%i) Exchange time:       %1.6f (%4.2f\%)\n", proc_rank, exchange_time, 100.0 * exchange_time / total_time);
+  printf("(%i) Communication time:  %1.6f (%4.2f\%)\n", proc_rank, communication_time, 100.0 * communication_time / total_time);
+  printf("(%i) Idle time:           %1.6f (%4.2f\%)\n", proc_rank, idle_time, 100.0 * idle_time / total_time);
+  printf("(%i) I/O time:            %1.6f (%4.2f\%)\n", proc_rank, io_time, 100.0 * io_time / total_time);
+  print_timer();
+
+  // save all times to binary file as one array
+  double **out;
+  double *tmp;
+  int *displacement;
+  int *sizes;
+
+  if ((sizes = malloc(P * sizeof(int))) == NULL)
+    Debug("Benchmark : malloc(sizes) failed", 1);
+  if ((displacement = malloc(P * sizeof(int))) == NULL)
+    Debug("Benchmark : malloc(displacement) failed", 1);
+
+  for (int i = 0; i < P; i++)
+  {
+    sizes[i] = 5;
+    displacement[i] = i * 5;
+  }
+
+  if ((tmp = malloc(5 * sizeof(double))) == NULL)
+    Debug("Benchmark : malloc(tmp) failed", 1);
+
+  tmp[0] = computation_time;
+  tmp[1] = exchange_time;
+  tmp[2] = communication_time;
+  tmp[3] = idle_time;
+  tmp[4] = io_time;
+
+  if ((out = malloc(P * sizeof(double *))) == NULL)
+    Debug("Benchmark : malloc(out) failed", 1);
+  for (int i = 0; i < P; i++)
+    if ((out[i] = malloc(5 * sizeof(double))) == NULL)
+      Debug("Benchmark : malloc(out[i]) failed", 1);
+
+  // collect all times into out array
+  MPI_Gatherv(tmp, 5, MPI_DOUBLE, out, sizes, displacement, MPI_DOUBLE, 0, grid_comm);
+
+  if (proc_rank == 0)
+  {
+    FILE *f;
+    char filename[100];
+    generate_filename(filename, BENCHMARK_FOLDER, "times");
+    if ((f = fopen(filename, "w")) == NULL)
+      Debug("Benchmark : Can't open times outputfile", 1);
+
+    if (fwrite(out, sizeof(double), 5 * P, f) != 5 * P)
+      Debug("Benchmark : Error during writing", 1);
+
+    fclose(f);
+  }
 }
 
 void Clean_Up()
@@ -681,9 +851,9 @@ int main(int argc, char **argv)
 
   Write_Grid();
 
-  Clean_Up();
+  Benchmark();
 
-  print_timer();
+  Clean_Up();
 
   Debug("MPI_Finalize", 0);
 

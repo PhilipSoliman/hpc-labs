@@ -81,6 +81,16 @@ void Setup_Grid(int argc, char **argv)
   ny = gridsize[Y_DIR];
   nm = 50;
 /****/
+  // save grid dimensions to file
+  sprintf(filename, "%s/gridsize.dat", INPUT_FOLDER);
+  if ((f = fopen(filename, "w")) == NULL)
+    Debug("Can't open gridsize.dat", 1);
+  
+  fprintf(f, "gridsize: %ix%i\n", gridsize[X_DIR], gridsize[Y_DIR]);
+  fprintf(f, "P_grid: %ix%i\n", P_grid[X_DIR], P_grid[Y_DIR]);
+  fprintf(f, "adapt: %i\n", do_adapt);
+  fclose(f);
+
 
   sprintf(filename, "%s/sources.dat", INPUT_FOLDER);
   if ((f = fopen(filename, "r")) == NULL)
@@ -130,7 +140,7 @@ void Write_Grid()
 
   Debug("Write_Grid", 0);
   printf("Writing Grid\n");
-  sprintf(filename, "grid%i.dat", P_grid[X_DIR] * P_grid[Y_DIR]);
+  sprintf(filename, "%s/grid%i.dat", INPUT_FOLDER, P_grid[X_DIR] * P_grid[Y_DIR]);
 
   if ((f=fopen(filename,"w")) == NULL)
     Debug("Write_Grid: Could not open data outputfile", 1);
