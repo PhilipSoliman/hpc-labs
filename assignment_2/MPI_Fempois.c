@@ -51,12 +51,12 @@ clock_t ticks;    /* number of systemticks */
 double wtime;     /* wallclock time */
 int timer_on = 0; /* is timer running? */
 double arbitrary_time;
-double computation_time = 0.0;
-double exchange_time = 0.0;
-double communication_time = 0.0;
-double idle_time = 0.0;
-double io_time = 0.0;
-double total_time = 0.0;
+double computation_time;
+double exchange_time;
+double communication_time;
+double idle_time;
+double io_time;
+double total_time;
 
 /* local process related variables */
 int proc_rank;           /* rank of current process */
@@ -72,6 +72,10 @@ double *phi;  /* vertex values */
 int N_vert;   /* number of vertices */
 Matrixrow *A; /* matrix A */
 
+/* residual error related variables */
+double *errors;
+int N_iters;
+
 void Setup_Proc_Grid();
 void Setup_Grid();
 void Build_ElMatrix(Element el);
@@ -81,6 +85,7 @@ void Exchange_Borders(double *vect);
 void Solve();
 void Write_Grid();
 void Benchmark();
+void Error_Analysis();
 void Clean_Up();
 void Debug(char *mesg, int terminate);
 void start_timer();
@@ -97,6 +102,11 @@ void start_timer()
     ticks = clock();
     wtime = MPI_Wtime();
     timer_on = 1;
+    computation_time = 0.0;
+    exchange_time = 0.0;
+    communication_time = 0.0;
+    io_time = 0.0;
+    idle_time = 0.0;
   }
 }
 
@@ -148,7 +158,7 @@ void Debug(char *mesg, int terminate)
 void generate_filename(char *fn, char *folder, char *type)
 {
   sprintf(fn, "%s/nproc=%i_procg=%ix%i_grid=%ix%i_nvert=%i_adapt=%i_%s.dat",
-          folder, P, P_grid[0], P_grid[1], grid_size[0], grid_size[1],
+          folder, P_grid[0]*P_grid[1], P_grid[0], P_grid[1], grid_size[0], grid_size[1],
           N_vert_total, do_adapt, type);
 }
 
@@ -277,27 +287,6 @@ void Setup_Grid()
     Debug("Setup_Grid : Can't open data inputfile", 1);
   fscanf(f, "N_vert: %i\n%*[^\n]\n", &N_vert);
   io_time += MPI_Wtime() - arbitrary_time;
-
-  /* get total number of vertices*/
-  // MPI_Allreduce(&N_vert, &N_vert_total, 1, MPI_INT, MPI_SUM, grid_comm);
-  // gather N_vert from all processes
-  // int *sizes;
-  // if (proc_rank == 0)
-  // {
-  //   if ((sizes = malloc(P * sizeof(int))) == NULL)
-  //     Debug("Setup_Grid : malloc(sizes) failed", 1);
-  // }
-  // arbitrary_time = MPI_Wtime();
-  // MPI_Gather(&N_vert, 1, MPI_INT, sizes, 1, MPI_INT, 0, grid_comm);
-  // communication_time += MPI_Wtime() - arbitrary_time;
-  // if (proc_rank == 0)
-  // {
-  //   N_vert_total = 0;
-  //   for (i = 0; i < P; i++)
-  //     N_vert_total += sizes[i];
-  //     printf("N_vert_total: %d\n", N_vert_total);
-  //   free(sizes);
-  // }
 
   /* allocate memory for phi and A */
   if ((vert = malloc(N_vert * sizeof(Vertex))) == NULL)
@@ -573,6 +562,11 @@ void Solve()
   }
 
   r1 = 2 * precision_goal;
+  if (proc_rank == 0)
+  {
+    if ((errors = malloc(sizeof(double))) == NULL)
+        Debug("Solve : malloc(errors) failed", 1);
+  }
   computation_time += MPI_Wtime() - arbitrary_time;
   while ((count < max_iter) && (r1 > precision_goal))
   {
@@ -642,6 +636,12 @@ void Solve()
 
     r2 = r1;
 
+    if (proc_rank == 0)
+    {
+      errors[count] = r1;
+      if ((errors = realloc(errors, (count + 2) * sizeof(double))) == NULL)
+        Debug("Solve : realloc(errors) failed", 1);
+    }
     count++;
   }
   free(q);
@@ -649,7 +649,10 @@ void Solve()
   free(r);
 
   if (proc_rank == 0)
+  {
     printf("Number of iterations : %i\n", count);
+    N_iters = count;
+  }
 }
 
 void Write_Grid()
@@ -831,6 +834,23 @@ void Benchmark()
   }
 }
 
+void Error_Analysis()
+{
+  if (proc_rank == 0)
+  {
+    FILE *f;
+    char filename[100];
+    generate_filename(filename, BENCHMARK_FOLDER, "error");
+    if ((f = fopen(filename, "w")) == NULL)
+      Debug("Error_Analysis : Can't open error outputfile", 1);
+
+    if (fwrite(errors, sizeof(double), N_iters, f) != N_iters)
+      Debug("Error_Analysis : Error during writing", 1);
+
+    fclose(f);
+  }
+}
+
 void Clean_Up()
 {
   int i;
@@ -857,17 +877,19 @@ int main(int argc, char **argv)
 {
   MPI_Init(&argc, &argv);
 
-  start_timer();
-
   Setup_Proc_Grid();
 
   Setup_Grid();
+
+  start_timer();
 
   Solve();
 
   Write_Grid();
 
   Benchmark();
+
+  Error_Analysis();
 
   Clean_Up();
 

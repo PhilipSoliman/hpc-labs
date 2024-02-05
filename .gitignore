@@ -12,6 +12,7 @@
 assignment_2/input/input[0-99]*-[0-99]*.dat
 assignment_2/input/mapping[0-99]*.dat 
 assignment_2/input/gridsize.dat
+assignment_2/input/grid[0-99]*.dat
 
 # virtual environment
 **/.venv
