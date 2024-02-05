@@ -149,7 +149,7 @@ void generate_filename(char *fn, char *folder, char *type)
 {
   sprintf(fn, "%s/nproc=%i_procg=%ix%i_grid=%ix%i_nvert=%i_adapt=%i_%s.dat",
           folder, P, P_grid[0], P_grid[1], grid_size[0], grid_size[1],
-          N_vert, do_adapt, type);
+          N_vert_total, do_adapt, type);
 }
 
 void Setup_Proc_Grid()
@@ -279,9 +279,25 @@ void Setup_Grid()
   io_time += MPI_Wtime() - arbitrary_time;
 
   /* get total number of vertices*/
-  arbitrary_time = MPI_Wtime();
-  MPI_Allreduce(&N_vert, &N_vert_total, 1, MPI_INT, MPI_SUM, grid_comm);
-  communication_time += MPI_Wtime() - arbitrary_time;
+  // MPI_Allreduce(&N_vert, &N_vert_total, 1, MPI_INT, MPI_SUM, grid_comm);
+  // gather N_vert from all processes
+  // int *sizes;
+  // if (proc_rank == 0)
+  // {
+  //   if ((sizes = malloc(P * sizeof(int))) == NULL)
+  //     Debug("Setup_Grid : malloc(sizes) failed", 1);
+  // }
+  // arbitrary_time = MPI_Wtime();
+  // MPI_Gather(&N_vert, 1, MPI_INT, sizes, 1, MPI_INT, 0, grid_comm);
+  // communication_time += MPI_Wtime() - arbitrary_time;
+  // if (proc_rank == 0)
+  // {
+  //   N_vert_total = 0;
+  //   for (i = 0; i < P; i++)
+  //     N_vert_total += sizes[i];
+  //     printf("N_vert_total: %d\n", N_vert_total);
+  //   free(sizes);
+  // }
 
   /* allocate memory for phi and A */
   if ((vert = malloc(N_vert * sizeof(Vertex))) == NULL)
@@ -697,9 +713,9 @@ void Write_Grid()
   if (proc_rank == 0)
   {
     int read_size;
-    int N_vert_total = 0;
     for (i = 0; i < P; i++)
       N_vert_total += sizes[i];
+      printf("N_vert_total: %d\n", N_vert_total);
 
     // allocate memory for combined file
     if ((tmp = malloc(3 * N_vert_total * sizeof(double))) == NULL)
