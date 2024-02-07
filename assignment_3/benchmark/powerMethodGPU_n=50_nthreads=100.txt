@@ -1,0 +1,4 @@
+CPU: 0.000090
+GPU (global): 0.000476, 0.000135
+GPU (shared): 0.002601, 0.000901
+Allocated shared memory (KB): 40.000000
