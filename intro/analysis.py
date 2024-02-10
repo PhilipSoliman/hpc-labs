@@ -1,10 +1,27 @@
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
-import utils.python_utils as pyutils
 from pprint import pprint
+from pathlib import Path
+import python_utils.python_utils as pyutils 
 from tabulate import tabulate
 from texttable import Texttable
 import latextable
+
+
+# get CLI
+args = sys.argv
+if "--show-output=" in args:
+    output = args[args.index("--show-output=") + 1]
+    if output.lower == "True":
+        output = True
+    elif output == "False":
+        output = False
+    else:
+        raise ValueError("No or invalid output flag found")
+elif __name__ == "__main__":
+    output = True
+
 
 # get root directory
 root = pyutils.get_root()
@@ -12,6 +29,7 @@ pingPongFolder = root / "intro" / "pingPong_times"
 MMFolder = root / "intro" / "MM_times"
 
 # check folder existence
+print(pingPongFolder)
 assert pingPongFolder.exists()
 assert MMFolder.exists()
 
@@ -48,13 +66,8 @@ for i in range(len(pingPongTimes)):
     y = pingPongTimes[i, 1:, 1]
 
     lines = ax.plot(
-        x,
-        y,
-        label=f"#nodes = {pingPongMeta[i]['nnodes']}",
-        marker="x",
-        linestyle=""
+        x, y, label=f"#nodes = {pingPongMeta[i]['nnodes']}", marker="x", linestyle=""
     )
-
 
     # numpy polyfit
     p = np.polyfit(x, y, 1)
@@ -63,8 +76,9 @@ for i in range(len(pingPongTimes)):
 
 
 ax.legend()
-plt.show()
 plt.tight_layout()
+if output:
+    plt.show()
 filename = f"pingPong_times.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
@@ -117,7 +131,7 @@ table = Texttable()
 table.set_cols_align(["c"] * len(header))
 table.set_deco(Texttable.HEADER | Texttable.VLINES)
 table.set_precision(2)
-table.set_cols_dtype(["i", "t", "t", scientific_fmt, scientific_fmt])
+table.set_cols_dtype(["i", "t", "t", pyutils.scientific_fmt, pyutils.scientific_fmt])
 table.add_rows(rows)
 label = f"tab:{header[0]}"
 
