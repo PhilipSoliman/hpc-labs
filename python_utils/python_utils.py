@@ -26,11 +26,16 @@ def get_cli_args() -> dict:
 
 def get_metadata(file: Path) -> dict:
     metadata = {}
-    metas = file.stem.split("_")
+    metas = file.name.split("_")
     for meta in metas:
-        try: key, value = meta.split("=")
-        except ValueError: continue
-        metadata[key] = value
+        if "=" in meta:
+            key, value = meta.split("=")
+            metadata[key] = value
+        elif "." in meta:
+            data_category, file_extension = meta.split(".")
+            metadata["type"] = data_category
+        else:
+            metadata["header"] = meta
     return metadata
 
 def scientific_fmt(s: float, prec: int = 2) -> str:
@@ -51,16 +56,17 @@ def scientific_fmt(s: float, prec: int = 2) -> str:
 
 # set standard matploylib style
 def set_style():
+    fontsize = 15
     plt.style.use("seaborn-v0_8-darkgrid")
     plt.rcParams["font.family"] = "serif"
     plt.rcParams["font.serif"] = "Times New Roman"
-    plt.rcParams["font.size"] = 12
-    plt.rcParams["axes.labelsize"] = 12
+    plt.rcParams["font.size"] = fontsize
+    plt.rcParams["axes.labelsize"] = fontsize
     plt.rcParams["axes.labelweight"] = "bold"
-    plt.rcParams["xtick.labelsize"] = 12
-    plt.rcParams["ytick.labelsize"] = 12
-    plt.rcParams["legend.fontsize"] = 12
-    plt.rcParams["figure.titlesize"] = 12
+    plt.rcParams["xtick.labelsize"] = fontsize
+    plt.rcParams["ytick.labelsize"] = fontsize
+    plt.rcParams["legend.fontsize"] = fontsize
+    plt.rcParams["figure.titlesize"] = fontsize
     plt.rcParams["lines.linewidth"] = 1.5
     plt.rcParams["axes.linewidth"] = 1.5
     plt.rcParams["xtick.major.width"] = 1.5
