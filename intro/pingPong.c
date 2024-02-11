@@ -47,7 +47,7 @@ int main(int argc, char **argv)
     // initialise arrays to save message length, duration and combined duration
     int messageLengthArray[MAX_ARRAY_SIZE_LEFT_SHIFT + 1];
     double timeArray[MAX_ARRAY_SIZE_LEFT_SHIFT + 1];
-    double combinedTimeArray[MAX_ARRAY_SIZE_LEFT_SHIFT + 1];
+    // double combinedTimeArray[MAX_ARRAY_SIZE_LEFT_SHIFT + 1];
     double startTime, endTime;
 
     // ping pong loop
@@ -116,50 +116,50 @@ int main(int argc, char **argv)
     }
 
     // combined ping pong loop send & receive operation using MPI_Sendrecv
-    if (0)
-    {
-        // create second array to use different buffer for send and receive operations
-        int *mySecondArray = (int *)malloc(sizeof(int) * MAX_ARRAY_SIZE);
-        if (mySecondArray == NULL)
-        {
-            printf("Not enough memory\n");
-            exit(1);
-        }
-        for (i = 0; i < MAX_ARRAY_SIZE; i++)
-            mySecondArray[i] = 1;
+    // if (0)
+    // {
+    //     // create second array to use different buffer for send and receive operations
+    //     int *mySecondArray = (int *)malloc(sizeof(int) * MAX_ARRAY_SIZE);
+    //     if (mySecondArray == NULL)
+    //     {
+    //         printf("Not enough memory\n");
+    //         exit(1);
+    //     }
+    //     for (i = 0; i < MAX_ARRAY_SIZE; i++)
+    //         mySecondArray[i] = 1;
 
-        for (j = 0; j <= MAX_ARRAY_SIZE_LEFT_SHIFT; j++)
-        {
-            numberOfElementsToSend = 1 << j;
-            if (myRank = 0)
-            {
-                startTime = MPI_Wtime();
-                for (i = 0; i < 5; i++)
-                {
-                    MPI_Sendrecv(myArray, numberOfElementsToSend, MPI_INT, 1, 0,
-                                 mySecondArray, numberOfElementsToSend, MPI_INT, 1, 0,
-                                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                }
-                endTime = MPI_Wtime();
+    //     for (j = 0; j <= MAX_ARRAY_SIZE_LEFT_SHIFT; j++)
+    //     {
+    //         numberOfElementsToSend = 1 << j;
+    //         if (myRank == 0)
+    //         {
+    //             startTime = MPI_Wtime();
+    //             for (i = 0; i < 5; i++)
+    //             {
+    //                 MPI_Sendrecv(myArray, numberOfElementsToSend, MPI_INT, 1, 0,
+    //                              mySecondArray, numberOfElementsToSend, MPI_INT, 1, 0,
+    //                              MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    //             }
+    //             endTime = MPI_Wtime();
 
-                // average communication time of 1 combined send-receive (total 5*2 times)
-                printf("Combined ping Pong took %f seconds\n", (endTime - startTime) / 10);
+    //             // average communication time of 1 combined send-receive (total 5*2 times)
+    //             printf("Combined ping Pong took %f seconds\n", (endTime - startTime) / 10);
 
-                // save average time
-                combinedTimeArray[j] = (endTime - startTime) / 10;
-            }
+    //             // save average time
+    //             combinedTimeArray[j] = (endTime - startTime) / 10;
+    //         }
 
-            if (myRank = 1)
-            {
-                for (i = 0; i < 5; i++)
-                {
-                    MPI_Sendrecv(mySecondArray, numberOfElementsToSend, MPI_INT, 0, 0,
-                                 myArray, numberOfElementsToSend, MPI_INT, 0, 0,
-                                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                }
-            }
-        }
-    }
+    //         if (myRank == 1)
+    //         {
+    //             for (i = 0; i < 5; i++)
+    //             {
+    //                 MPI_Sendrecv(mySecondArray, numberOfElementsToSend, MPI_INT, 0, 0,
+    //                              myArray, numberOfElementsToSend, MPI_INT, 0, 0,
+    //                              MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    //             }
+    //         }
+    //     }
+    // }
 
     // Finalize MPI
     MPI_Finalize();
@@ -173,7 +173,7 @@ int main(int argc, char **argv)
             timeDataArray[i][0] = messageLengthArray[i];
             timeDataArray[i][1] = timeArray[i];
         }
-        int arraySize = 2 * (MAX_ARRAY_SIZE_LEFT_SHIFT + 1);
+        // int arraySize = 2 * (MAX_ARRAY_SIZE_LEFT_SHIFT + 1);
 
         // save data to file
         printf("Saving message length and duration data to file...\n");
