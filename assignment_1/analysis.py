@@ -13,18 +13,20 @@ output_folder = root / "assignment_1" / "output"
 assert output_folder.exists()
 
 # get data file list
-outputFiles = list(output_folder.glob("*.dat"))
+outputFiles = sorted(list(output_folder.glob("*.dat")))
 
 # extract arrays & metadata
 phis = []
 phisMeta = []
-sizes = []
+grid_sizes = []
 for file in outputFiles:
     meta = pyutils.get_metadata(file)
     phisMeta.append(meta)
+
+    # output
     n_x, n_y = meta["gs"].split("x")
     n_x, n_y = int(n_x), int(n_y)
-    sizes.append((n_x, n_y))
+    grid_sizes.append((n_x, n_y))
     phis.append(np.fromfile(file).reshape((n_x, n_y), order="C"))
 
 # plot 3D surface
@@ -37,7 +39,7 @@ subplot_index = num_rows * 100 + num_cols * 10 + 1
 for i, phi in enumerate(phis):
     subplot_index += i
     ax = fig.add_subplot(subplot_index, projection="3d")
-    n_x, n_y = sizes[i]
+    n_x, n_y = grid_sizes[i]
     x = np.linspace(0, 1, n_x)
     y = np.linspace(0, 1, n_y)
     X, Y = np.meshgrid(x, y)
@@ -50,9 +52,50 @@ plt.tight_layout()
 
 # show plot
 if args_d.get("output") or __name__ == "__main__":
-    plt.show()
+    # plt.show()
+    pass
 
 # save plot
 filename = f"poisson_surface.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
+
+# optimal omega
+timeFolder = root / "assignment_1" / "ppoisson_times"
+assert timeFolder.exists()
+
+timeFiles = sorted(list(timeFolder.glob("*.dat")))
+omegasMeta = []
+omegas = []
+iters = []
+times = []
+grid_sizes = []
+pgrid_sizes = []
+for file in timeFiles:
+    meta = pyutils.get_metadata(file)
+    omegasMeta.append(meta)
+    if meta["type"] == "omegas":
+        n_x, n_y = meta["gs"].split("x")
+        n_x, n_y = int(n_x), int(n_y)
+        grid_sizes.append((n_x, n_y))
+        omegas.append(np.fromfile(file))
+
+    if meta["type"] == "times":
+        iters.append(np.fromfile(file))
+        p_x, p_y = meta["procg"].split("x")
+        p_x, p_y = int(p_x), int(p_y)
+        pgrid_sizes.append((p_x, p_y))
+
+        number_of_proc = p_x * p_y
+        number_of_omegas = int(meta["nomega"])
+
+        times.append(np.fromfile(file).reshape(2, number_of_proc, number_of_omegas, order="C"))
+ 
+    if meta["type"] == "iters":
+        iters.append(np.fromfile(file))
+
+pprint("omegas = ", omegas)
+pprint("iters = ", iters)
+pprint("times = ", times)
+pprint("grid_sizes = ", grid_sizes)
+pprint("pgrid_sizes = ", pgrid_sizes)
