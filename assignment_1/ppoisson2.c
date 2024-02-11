@@ -785,7 +785,7 @@ void Benchmark()
     if (f3 == NULL)
       Debug("Error opening benchmark file", 1);
 
-    if (fwrite(iters, sizeof(double), omega_length, f3) != omega_length)
+    if (fwrite(iters, sizeof(int), omega_length, f3) != omega_length)
     {
       Debug("File write error.", 1);
       exit(1);
