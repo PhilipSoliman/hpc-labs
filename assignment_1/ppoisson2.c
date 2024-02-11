@@ -777,10 +777,9 @@ void Benchmark()
     if (f2 == NULL)
       Debug("Error opening benchmark file", 1);
 
-    if (fwrite(omegas, sizeof(double), omega_length, f2) != omega_length)
+    for (i = 0; i < omega_length; i++)
     {
-      Debug("File write error.", 1);
-      exit(1);
+      fwrite(&omegas[i], sizeof(double), 1, f2);
     }
 
     fclose(f2);
@@ -790,30 +789,13 @@ void Benchmark()
     if (f3 == NULL)
       Debug("Error opening benchmark file", 1);
 
-    // print statements for debugging
-    for (i = 0; i < omega_length; i++)
-    {
-      printf("Omega: %.2f, Iterations: %i\n", omegas[i], iters[i]);
-    }
-
     for (i = 0; i < omega_length; i++)
     {
       fwrite(&iters[i], sizeof(int), 1, f3);
     }
-    
+
     fclose(f3);
   }
-
-  // for (i = 0; i < 2; i++)
-  // {
-  //   for (p = 0; p < P; p++)
-  //   {
-  //     free(&benchmark[i][p]);
-  //   }
-  //   free(&benchmark[i]);
-  // }
-  // free(benchmark);
-
 }
 
 void Error_Analysis()
