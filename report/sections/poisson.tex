@@ -1,9 +1,20 @@
 \section{Parallel Poisson solver}
 
-% include figure 
+\subsection{parallellisation of the Poisson solver}
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.8\textwidth]{figures/poisson_surface.png}
     \caption{Surface plots of parallel poisson solution various (process) grid shapes.}
     \label{fig:ppoisson_surface}
 \end{figure}
+
+\subsection{Improvements \& performance analysis}
+Variables:
+\begin{itemize}
+    \item $\mathrm{n}$ : the number of iterations
+    \item g: gridsize
+    \item $\mathrm{t}$ : time needed in seconds
+    \item pt: processor topology in form pxy, where p: number of processors used $\mathrm{x}$ : number of processors in $\mathrm{x}$ - direction $y$ : number of processors in y-direction
+\end{itemize}
+
+\subsubsection{optimal value for $\omega$}
