@@ -94,8 +94,13 @@ for file in timeFiles:
     if meta["type"] == "iters":
         iters.append(np.fromfile(file))
 
-pprint("omegas = ", omegas)
-pprint("iters = ", iters)
-pprint("times = ", times)
-pprint("grid_sizes = ", grid_sizes)
-pprint("pgrid_sizes = ", pgrid_sizes)
+print("Omegas:")
+pprint(omegas)
+print("Iters:")
+pprint(iters)
+print("Times:")
+pprint(times)
+print("Grid Sizes:")
+pprint(grid_sizes)
+print("PGrid Sizes:")
+pprint(pgrid_sizes)
