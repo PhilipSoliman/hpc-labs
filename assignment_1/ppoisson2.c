@@ -27,7 +27,7 @@ int max_iter = 5000;            /* maximum number of iterations alowed */
 MPI_Datatype border_type[2];    /* Datatypes for vertical and horizontal exchange */
 int *gridsizes;
 int grid_length = 1;
-int grid_size_idx = 0;
+int grid_size_idx;
 // char fn_template[] = "%s/procg=%ix%i__gs=%ix%i_wl=%3.2f_wh=%3.2f_nomega=%i_swpl=%i_swph=%i_eloop=%i_%s.dat";
 
 /* process specific variables */
@@ -680,23 +680,39 @@ void Write_Grid()
 void Benchmark()
 {
   double ***benchmark; /* 3D array holding benchmark results shape 2 x #processors x #omegas*/
-  int benchmark_size;
+  int benchmark_size, i, j, p;
   // Debug("Benchmark", 0);
 
-  // save time, cpu_util, omega in root process
+  benchmark_size = 2 * P * omega_length;
+  // allocate benchmark array with malloc check
   if (proc_rank == 0)
   {
-    benchmark_size = 2 * P * omega_length;
-    benchmark = malloc(2 * sizeof(double **) * P);
-    for (int i = 0; i < 2 * P; i++)
+    if ((benchmark = (double ***)malloc(2 * sizeof(double **))) == NULL)
+      Debug("Benchmark : malloc(benchmark) failed", 1);
+    for (i = 0; i < 2; i++)
     {
-      benchmark[i] = malloc(P * sizeof(double *) * omega_length);
-      for (int j = 0; j < P; j++)
+      if ((benchmark[i] = (double **)malloc(P * sizeof(double *))) == NULL)
+        Debug("Benchmark : malloc(benchmark[i]) failed", 1);
+      for (p = 0; p < P; p++)
       {
-        benchmark[i][j] = malloc(omega_length * sizeof(double) * 2);
+        if ((benchmark[i][p] = (double *)malloc(omega_length * sizeof(double))) == NULL)
+          Debug("Benchmark : malloc(benchmark[i][p]) failed", 1);
       }
     }
-    for (int j = 0; j < omega_length; j++)
+
+    // initialize benchmark
+    for (i = 0; i < 2; i++)
+    {
+      for (p = 0; p < P; p++)
+      {
+        for (j = 0; j < omega_length; j++)
+        {
+          benchmark[i][p][j] = 0.0;
+        }
+      }
+    }
+
+    for (j = 0; j < omega_length; j++)
     {
       benchmark[0][0][j] = wtimes[j];
       benchmark[1][0][j] = cpu_util[j];
@@ -704,40 +720,40 @@ void Benchmark()
   }
 
   // gather times
-  if (proc_rank == 0)
-  {
-    for (int i = 1; i < P; i++)
-    {
-      MPI_Recv(&benchmark[0][i][0], omega_length, MPI_DOUBLE, i, 0, grid_comm, &status);
-    }
-  }
-  else
+  if (proc_rank != 0)
   {
     MPI_Send(wtimes, omega_length, MPI_DOUBLE, 0, 0, grid_comm);
   }
-
+  else
+  {
+    for (p = 1; p < P; p++)
+    {
+      MPI_Recv(benchmark[0][p], omega_length, MPI_DOUBLE, p, 0, grid_comm, &status);
+    }
+  }
+  // gather times using MPI_Gather
+  // MPI_Gather(&wtimes[0], omega_length, MPI_DOUBLE, &benchmark[0][proc_rank][0], omega_length, MPI_DOUBLE, 0, grid_comm);
   MPI_Barrier(grid_comm);
 
   // gather cpu util
-  if (proc_rank == 0)
+  if (proc_rank != 0)
   {
-    for (int i = 1; i < P; i++)
-    {
-      MPI_Recv(&benchmark[1][i][0], omega_length, MPI_DOUBLE, i, 1, grid_comm, &status);
-    }
+    MPI_Send(cpu_util, omega_length, MPI_DOUBLE, 0, 0, grid_comm);
   }
   else
   {
-    MPI_Send(cpu_util, omega_length, MPI_DOUBLE, 0, 1, grid_comm);
+    for (p = 1; p < P; p++)
+    {
+      MPI_Recv(benchmark[1][p], omega_length, MPI_DOUBLE, p, 0, grid_comm, &status);
+    }
   }
-
+  // MPI_Gather(&cpu_util[0], omega_length, MPI_DOUBLE, &benchmark[1][proc_rank][0], omega_length, MPI_DOUBLE, 0, grid_comm);
   MPI_Barrier(grid_comm);
 
   if (proc_rank == 0)
   {
     // char fn_template[] = "ppoisson_times/procg=%ix%i__gs=%ix%i_wl=%3.2f_wh=%3.2f_nomega=%i_times.dat";
     char fn[200];
-    // sprintf(fn, fn_template, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omegas[0], omegas[omega_length - 1], omega_length);
     generate_fn(fn, "ppoisson_times", "times");
     FILE *f = fopen(fn, "w");
     if (f == NULL)
@@ -752,7 +768,6 @@ void Benchmark()
 
     //  save omega values to file
     generate_fn(fn, "ppoisson_times", "omegas");
-    // sprintf(fn2, fn_template2, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omegas[0], omegas[omega_length - 1], omega_length);
     FILE *f2 = fopen(fn, "w");
     if (f2 == NULL)
       Debug("Error opening benchmark file", 1);
@@ -765,10 +780,6 @@ void Benchmark()
 
     fclose(f2);
 
-    //  save iters to file
-    // char fn_template3[] = "ppoisson_times/procg=%ix%i__gs=%ix%i_wl=%3.2f_wh=%3.2f_nomega=%i_iters.dat";
-    // char fn3[200];
-    // sprintf(fn3, fn_template3, P_grid[X_DIR], P_grid[Y_DIR], gridsize[X_DIR], gridsize[Y_DIR], omegas[0], omegas[omega_length - 1], omega_length);
     generate_fn(fn, "ppoisson_times", "iters");
     FILE *f3 = fopen(fn, "w");
     if (f3 == NULL)
@@ -782,6 +793,17 @@ void Benchmark()
 
     fclose(f3);
   }
+
+  // for (i = 0; i < 2; i++)
+  // {
+  //   for (p = 0; p < P; p++)
+  //   {
+  //     free(&benchmark[i][p]);
+  //   }
+  //   free(&benchmark[i]);
+  // }
+  // free(benchmark);
+
 }
 
 void Error_Analysis()
@@ -808,7 +830,7 @@ void Error_Analysis()
 
 void Sweep_Analysis()
 {
-  int sweep_vs_omega_size;
+  int sweep_vs_omega_size = omega_length * sweep_length;
   // Debug("Sweep_Analysis", 0);
   if (proc_rank == 0)
   {
@@ -831,36 +853,36 @@ void Latency_Analysis()
 {
   // Debug("Latency_Analysis", 0);
   // TODO: fix this function
-  double ***out; // holds latencies, bytes per process shape =  2 x P X latency_length
+  double ***out; // holds latencies, bytes per process shape =  2 x P x latency_length
   int out_size, i, j, p;
 
   if (proc_rank == 0)
   {
 
     out_size = 2 * P * latency_length;
-    out = malloc(2 * sizeof(double **) * P);
-    for (i = 0; i < 2 * P; i++)
+    out = malloc(2 * sizeof(double **));
+    for (i = 0; i < 2; i++)
     {
-      out[i] = malloc(P * sizeof(double *) * latency_length);
+      out[i] = malloc(P * sizeof(double *));
       for (j = 0; j < P; j++)
       {
-        out[i][j] = malloc(latency_length * sizeof(double) * 2);
+        out[i][j] = malloc(latency_length * sizeof(double));
       }
     }
 
-    // initialise out
-    for (i = 0; i < 2 * P; i++)
-    {
-      for (j = 0; j < P; j++)
-      {
-        for (p = 0; p < latency_length; p++)
-        {
-          out[i][j][p] = 0.0;
-        }
-      }
-    }
+    // initialize out
+    // for (i = 0; i < 2 * P; i++)
+    // {
+    //   for (p = 0; p < P; p++)
+    //   {
+    //     for (j = 0; j < latency_length; j++)
+    //     {
+    //       out[i][p][j] = 0.0;
+    //     }
+    //   }
+    // }
 
-    for (i = 0; i < latency_length; i++)
+    for (j = 0; j < latency_length; i++)
     {
       out[0][0][i] = latencies[i];
       out[1][0][i] = bytes[i];
@@ -935,6 +957,17 @@ void Clean_Up_Metadata()
   free(iters);
   free(wtimes);
   free(cpu_util);
+  free(sweeps);
+  // for (int i = 0; i < sweep_length; i++)
+  // {
+  //   free(iters_sweep_vs_omega[i]);
+  // }
+  // free(iters_sweep_vs_omega);
+  // if (latency_flag)
+  // {
+  //   free(latencies);
+  //   free(bytes);
+  // }
 }
 
 void Setup_MPI_Datatypes()
@@ -956,7 +989,6 @@ void Exchange_Borders()
 {
   // Debug("Exchange_Borders", 0);
   double latency_start;
-  double bytes_sent, bytes_received;
 
   if (latency_flag)
   {
@@ -1009,6 +1041,7 @@ void Exchange_Borders()
                  &phi[0][1], 1, border_type[X_DIR], proc_left, 0, grid_comm, &status);
   }
 }
+
 int main(int argc, char **argv)
 {
   MPI_Init(&argc, &argv);
@@ -1032,7 +1065,7 @@ int main(int argc, char **argv)
     bytes = malloc(sizeof(double));
   }
 
-  for (grid_size_idx; grid_size_idx < grid_length; grid_size_idx++)
+  for (grid_size_idx = 0; grid_size_idx < grid_length; grid_size_idx++)
   {
     for (int j = 0; j < sweep_length; j++)
     {
@@ -1078,7 +1111,7 @@ int main(int argc, char **argv)
 
       MPI_Barrier(grid_comm);
 
-      if (benchmark_flag)
+      if (benchmark_flag == 1)
       {
         Benchmark();
       }
