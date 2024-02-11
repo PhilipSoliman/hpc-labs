@@ -684,32 +684,38 @@ void Benchmark()
   // Debug("Benchmark", 0);
 
   benchmark_size = 2 * P * omega_length;
-  // allocate benchmark array with malloc check
   if (proc_rank == 0)
   {
-    if ((benchmark = (double ***)malloc(2 * sizeof(double **))) == NULL)
-      Debug("Benchmark : malloc(benchmark) failed", 1);
-    for (i = 0; i < 2; i++)
-    {
-      if ((benchmark[i] = (double **)malloc(P * sizeof(double *))) == NULL)
-        Debug("Benchmark : malloc(benchmark[i]) failed", 1);
-      for (p = 0; p < P; p++)
-      {
-        if ((benchmark[i][p] = (double *)malloc(omega_length * sizeof(double))) == NULL)
-          Debug("Benchmark : malloc(benchmark[i][p]) failed", 1);
-      }
+    // Allocate memory for the pointers to the rows
+    benchmark = (double ***)malloc(2 * sizeof(double **));
+    if (benchmark == NULL) {
+        Debug("Memory allocation failed", 1);
+        exit(1);
     }
 
-    // initialize benchmark
-    for (i = 0; i < 2; i++)
-    {
-      for (p = 0; p < P; p++)
-      {
-        for (j = 0; j < omega_length; j++)
-        {
-          benchmark[i][p][j] = 0.0;
+    // Allocate memory for each row and for the elements in each row
+    for (i = 0; i < 2; i++) {
+        benchmark[i] = (double **)malloc(P * sizeof(double *));
+        if (benchmark[i] == NULL) {
+            Debug("Memory allocation failed", 1);
+            exit(1);
         }
-      }
+        for (p = 0; p < P; p++) {
+            benchmark[i][p] = (double *)malloc(omega_length * sizeof(double));
+            if (benchmark[i][p] == NULL) {
+                Debug("Memory allocation failed", 1);
+                exit(1);
+            }
+        }
+    }
+
+    // Assign values to the elements
+    for (i = 0; i < 2; i++) {
+        for (p = 0; p < P; p++) {
+            for (j = 0; j < omega_length; j++) {
+                benchmark[i][p][j] = 0.0;
+            }
+        }
     }
 
     for (j = 0; j < omega_length; j++)
@@ -764,6 +770,16 @@ void Benchmark()
       Debug("File write error.", 1);
       exit(1);
     }
+    // for (i = 0; i < 2; i++)
+    // {
+    //   for (p = 0; p < P; p++)
+    //   {
+    //     for (j = 0; j < omega_length; j++)
+    //     {
+    //       fprintf(f, "%i %i %i %f\n", i, p, j, benchmark[i][p][j]);
+    //     }
+    //   }
+    // }
     fclose(f);
 
     //  save omega values to file
@@ -784,6 +800,12 @@ void Benchmark()
     FILE *f3 = fopen(fn, "w");
     if (f3 == NULL)
       Debug("Error opening benchmark file", 1);
+
+    // print statements for debugging
+    for (i = 0; i < omega_length; i++)
+    {
+      printf("Omega: %.2f, Iterations: %i\n", omegas[i], iters[i]);
+    }
 
     if (fwrite(iters, sizeof(int), omega_length, f3) != omega_length)
     {
