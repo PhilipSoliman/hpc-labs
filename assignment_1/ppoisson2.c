@@ -95,6 +95,7 @@ int latency_length;
 double* time_by_iteration;
 int timeviter_flag;
 int time_by_iteration_size = 0;
+double iter_time;
 
 
 /* function declarations */
@@ -609,6 +610,7 @@ void Solve()
     time_by_iteration = malloc(sizeof(double));
     time_by_iteration[0] = 0.0;
     time_by_iteration_size++;
+
   }
   while (global_delta > precision_goal && count < max_iter)
   {
@@ -617,6 +619,9 @@ void Solve()
       latency = 0.0;
       byte = 0.0;
     }
+
+    if (timeviter_flag == 1)
+      iter_time = MPI_Wtime();
 
     delta1 = Do_Step(0);
     Exchange_Borders();
@@ -637,13 +642,11 @@ void Solve()
 
     if (proc_rank == 0)
     {
-      stop_timer();
       errors = realloc(errors, (count + 1) * sizeof(double));
       errors[count] = global_delta;
       time_by_iteration = realloc(time_by_iteration, (count + 1) * sizeof(double));
-      time_by_iteration[count] = wtime;
+      time_by_iteration[count] = MPI_Wtime()-iter_time;
       time_by_iteration_size++;
-      resume_timer();
     }
 
     if (latency_flag)
