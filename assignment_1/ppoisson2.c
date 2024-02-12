@@ -1079,6 +1079,7 @@ void Exchange_Borders()
 {
   // Debug("Exchange_Borders", 0);
   double latency_start;
+  int data_size;
   if (count % sweep == 0)
   {
     if (latency_flag)
@@ -1091,16 +1092,22 @@ void Exchange_Borders()
       if (proc_top > 0)
       {
         latency += MPI_Wtime() - latency_start;
-        byte += 2 * (dim[Y_DIR] - 2) * sizeof(double);
+        // byte += 2 * (dim[X_DIR] - 2) * sizeof(double);
+        MPI_Type_size(border_type[Y_DIR], &data_size);
+        byte += 2 * data_size * sizeof(double);
       }
+      
       latency_start = MPI_Wtime();
       MPI_Sendrecv(&phi[1][dim[Y_DIR] - 2], 1, border_type[Y_DIR], proc_bottom, 0,
                   &phi[1][0], 1, border_type[Y_DIR], proc_top, 0, grid_comm, &status); /*  all  traffic in direction "bottom"        */
       if (proc_bottom > 0)
       {
         latency += MPI_Wtime() - latency_start;
-        byte += 2 * (dim[Y_DIR] - 2) * sizeof(double);
+        // byte += 2 * (dim[X_DIR] - 2) * sizeof(double);
+        MPI_Type_size(border_type[Y_DIR], &data_size);
+        byte += 2 * data_size * sizeof(double);
       }
+      
       // left to right and right to left exchange
       MPI_Barrier(grid_comm);
       latency_start = MPI_Wtime();
@@ -1109,15 +1116,20 @@ void Exchange_Borders()
       if (proc_left > 0)
       {
         latency += MPI_Wtime() - latency_start;
-        byte += 2 * (dim[X_DIR] - 2) * sizeof(double);
+        // byte += 2 * (dim[X_DIR] - 2) * sizeof(double);
+        MPI_Type_size(border_type[X_DIR], &data_size);
+        byte += 2 * data_size * sizeof(double);      
       }
+      
       latency_start = MPI_Wtime();
       MPI_Sendrecv(&phi[dim[X_DIR] - 2][1], 1, border_type[X_DIR], proc_right, 0,
                   &phi[0][1], 1, border_type[X_DIR], proc_left, 0, grid_comm, &status); /* all traffic in the direction "right" */
       if (proc_right > 0)
       {
         latency += MPI_Wtime() - latency_start;
-        byte += 2 * (dim[X_DIR] - 2) * sizeof(double);
+        // byte += 2 * (dim[X_DIR] - 2) * sizeof(double);
+        MPI_Type_size(border_type[X_DIR], &data_size);
+        byte += 2 * data_size * sizeof(double);      
       }
     }
     else

@@ -2,7 +2,7 @@
 #
 #SBATCH --job-name="ppoisson2"
 #SBATCH --partition=compute
-#SBATCH --time=0:10:00
+#SBATCH --time=0:02:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=4
 #SBATCH --cpus-per-task=1
