@@ -7,6 +7,10 @@ import python_utils.python_utils as pyutils
 # get CLI
 args_d = pyutils.get_cli_args()
 
+# clear plots if necessary
+if args_d.get("output") or __name__ == "__main__":
+    plt.close("all")
+
 # get root directory
 root = pyutils.get_root()
 output_folder = root / "assignment_1" / "output"
@@ -51,9 +55,7 @@ for i, phi in enumerate(phis):
 plt.tight_layout()
 
 # show plot
-if args_d.get("output") or __name__ == "__main__":
-    # plt.show()
-    pass
+
 
 # save plot
 filename = f"poisson_surface.png"
@@ -81,7 +83,6 @@ for file in timeFiles:
         omegas.append(np.fromfile(file))
 
     if meta["type"] == "times":
-        iters.append(np.fromfile(file))
         p_x, p_y = meta["procg"].split("x")
         p_x, p_y = int(p_x), int(p_y)
         pgrid_sizes.append((p_x, p_y))
@@ -104,3 +105,17 @@ print("Grid Sizes:")
 pprint(grid_sizes)
 print("PGrid Sizes:")
 pprint(pgrid_sizes)
+
+# plot optimal omega
+fig, ax = plt.subplots(2)
+for i, omega in enumerate(omegas):
+    ax.plot(omega, iters[i], label=f"{grid_sizes[i][0]}x{grid_sizes[i][1]}")
+ax.set_xlabel("Omega")
+ax.set_ylabel("Residual")
+ax.set_title("Residual vs Omega")
+ax.legend()
+plt.tight_layout()
+
+
+if args_d.get("output") or __name__ == "__main__":
+    plt.show()
