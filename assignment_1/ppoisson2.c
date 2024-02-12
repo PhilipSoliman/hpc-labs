@@ -643,6 +643,7 @@ void Solve()
     {
       errors = realloc(errors, (count + 1) * sizeof(double));
       errors[count] = global_delta;
+      printf("(%i) i: %i error = %2.5f\n", proc_rank, count, global_delta);
       time_by_iteration = realloc(time_by_iteration, (count + 1) * sizeof(double));
       time_by_iteration[count] = MPI_Wtime()-iter_time;
       time_by_iteration_size++;
@@ -1200,13 +1201,12 @@ int main(int argc, char **argv)
 
       if (sweep_length > 1)
       {
-        MPI_Reduce(&wtime, &wtime_sum, 1, MPI_DOUBLE, MPI_SUM, 0, grid_comm);
         if (proc_rank == 0)
         {
           for (int k = 0; k < omega_length; k++)
           {
             iters_sweep_vs_omega[j][k] = iters[k];
-            times_sweep_vs_omega[j][k] = wtime_sum;
+            times_sweep_vs_omega[j][k] = wtimes[k];
           }
         }
       }
