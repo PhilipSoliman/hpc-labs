@@ -49,6 +49,7 @@ double wtime;
 double *wtimes;
 int count;
 int *iters;
+double wtime_sum;
 
 /* local grid related variables */
 double **phi; /* grid */
@@ -79,6 +80,7 @@ int *sweeps;
 // sweeps = malloc(sizeof(int));
 // sweeps[0] = 1;
 int **iters_sweep_vs_omega;
+double **times_sweep_vs_omega;
 int sweep_length = 1;
 
 /* latency analysis */
@@ -469,7 +471,7 @@ void Get_CLIs(int argc, char **argv)
         }
       }
 
-      if (strcmp(argv[l], "-efficient_loop") == 0)
+      if (strcmp(argv[l], "-efficient-loop") == 0)
       {
         if (strcmp(argv[l + 1], "true") == 0)
         {
@@ -811,10 +813,9 @@ void Error_Analysis()
     if (f == NULL)
       Debug("Error opening error file", 1);
 
-    if (fwrite(errors, sizeof(double), count + 1, f) != count + 1)
+    for (int i = 0; i < count; i++)
     {
-      Debug("File write error.", 1);
-      exit(1);
+      fwrite(&errors[i], sizeof(double), 1, f);
     }
     fclose(f);
   }
@@ -832,19 +833,35 @@ void Sweep_Analysis()
     if (f == NULL)
       Debug("Error opening sweep file", 1);
 
-    if (fwrite(iters_sweep_vs_omega, sizeof(int), sweep_vs_omega_size, f) != sweep_vs_omega_size)
+    for (int i = 0; i < sweep_length; i++)
     {
-      Debug("File write error.", 1);
-      exit(1);
+      for (int j = 0; j < omega_length; j++)
+      {
+        fwrite(&iters_sweep_vs_omega[i][j], sizeof(int), 1, f);
+      }
     }
     fclose(f);
+
+    generate_fn(fn, "sweep_analysis", "times");
+    FILE *f1 = fopen(fn, "w");
+    if (f1 == NULL)
+      Debug("Error opening sweep file", 1);
+
+    for (int i = 0; i < sweep_length; i++)
+    {
+      for (int j = 0; j < omega_length; j++)
+      {
+        fwrite(&times_sweep_vs_omega[i][j], sizeof(int), 1, f);
+      }
+    }
+    fclose(f1);
+
   }
 }
 
 void Latency_Analysis()
 {
   // Debug("Latency_Analysis", 0);
-  // TODO: fix this function
   double ***out; // holds latencies, bytes per process shape =  2 x P x latency_length
   int out_size, i, j, p;
 
@@ -852,39 +869,37 @@ void Latency_Analysis()
   {
 
     out_size = 2 * P * latency_length;
-    out = malloc(2 * sizeof(double **));
+    // Allocate memory for the pointers to the rows
+    if ((out = malloc(2 * sizeof(double **))) == NULL)
+      Debug("Latency_Analysis : malloc(out) failed", 1);
+    if ((out[0] = malloc(P * sizeof(double *))) == NULL)
+      Debug("Latency_Analysis : malloc(out[0]) failed", 1);
+    if ((out[1] = malloc(P * sizeof(double *))) == NULL)
+      Debug("Latency_Analysis : malloc(out[1]) failed", 1);
     for (i = 0; i < 2; i++)
     {
-      out[i] = malloc(P * sizeof(double *));
-      for (j = 0; j < P; j++)
+      for (p = 0; p < P; p++)
       {
-        out[i][j] = malloc(latency_length * sizeof(double));
+        if ((out[i][p] = malloc(latency_length * sizeof(double))) == NULL)
+          Debug("Latency_Analysis : malloc(out[i][p]) failed", 1);
       }
     }
 
-    // initialize out
-    // for (i = 0; i < 2 * P; i++)
-    // {
-    //   for (p = 0; p < P; p++)
-    //   {
-    //     for (j = 0; j < latency_length; j++)
-    //     {
-    //       out[i][p][j] = 0.0;
-    //     }
-    //   }
-    // }
-
-    for (j = 0; j < latency_length; i++)
+    for (j = 0; j < latency_length; j++)
     {
-      out[0][0][i] = latencies[i];
-      out[1][0][i] = bytes[i];
+      out[0][0][j] = latencies[j];
+      out[1][0][j] = bytes[j];
     }
   }
 
-  MPI_Barrier(grid_comm); // wait for all root process to allocate memory
+  MPI_Barrier(grid_comm); 
 
   // gather latencies
-  if (proc_rank == 0)
+  if (proc_rank != 0)
+  {
+    MPI_Send(latencies, latency_length, MPI_DOUBLE, 0, 0, grid_comm);
+  }
+  else
   {
     for (p = 1; p < P; p++)
     {
@@ -892,24 +907,19 @@ void Latency_Analysis()
     }
   }
 
-  if (proc_rank != 0)
-  {
-    MPI_Send(latencies, latency_length, MPI_DOUBLE, 0, 0, grid_comm);
-  }
-
   MPI_Barrier(grid_comm);
 
   // gather bytes
-  if (proc_rank == 0)
+  if (proc_rank != 0)
   {
-    for (p = 1; p < P; p++)
-    {
-      MPI_Recv(&out[1][p][0], latency_length, MPI_DOUBLE, p, 1, grid_comm, &status);
-    }
+    MPI_Send(bytes, latency_length, MPI_DOUBLE, 0, 0, grid_comm);
   }
   else
   {
-    MPI_Send(bytes, latency_length, MPI_DOUBLE, 0, 1, grid_comm);
+    for (p = 1; p < P; p++)
+    {
+      MPI_Recv(&out[1][p][0], latency_length, MPI_DOUBLE, p, 0, grid_comm, &status);
+    }
   }
 
   MPI_Barrier(grid_comm);
@@ -922,11 +932,26 @@ void Latency_Analysis()
     if (f == NULL)
       Debug("Error opening latency file", 1);
 
-    if (fwrite(out, sizeof(double), out_size, f) != out_size)
+    for (i = 0; i < 2; i++)
     {
-      Debug("File write error.", 1);
-      exit(1);
+      for (p = 0; p < P; p++)
+      {
+        for (j = 0; j < latency_length; j++)
+        {
+          fwrite(&out[i][p][j], sizeof(double), 1, f);
+        }
+      }
     }
+    fclose(f);
+    // free memory
+    // for (i = 0; i < 2; i++)
+    // {
+    //   for (p = 0; p < P; p++)
+    //   {
+    //     free(out[i][p]);
+    //   }
+    //   free(out[i]);
+    // }
   }
 }
 
@@ -938,6 +963,11 @@ void Clean_Up_Problemdata()
   free(phi);
   free(source[0]);
   free(source);
+  // if (latency_flag)
+  // {
+  //   free(latencies);
+  //   free(bytes);
+  // }
 }
 
 void Clean_Up_Metadata()
@@ -1046,9 +1076,11 @@ int main(int argc, char **argv)
   wtimes = malloc(omega_length * sizeof(double));
   cpu_util = malloc(omega_length * sizeof(double));
   iters_sweep_vs_omega = malloc(sweep_length * sizeof(int *));
+  times_sweep_vs_omega = malloc(sweep_length * sizeof(double *));
   for (int i = 0; i < sweep_length; i++)
   {
     iters_sweep_vs_omega[i] = malloc(omega_length * sizeof(int));
+    times_sweep_vs_omega[i] = malloc(omega_length * sizeof(double));
   }
 
   if (latency_flag)
@@ -1108,11 +1140,16 @@ int main(int argc, char **argv)
         Benchmark();
       }
 
-      if (proc_rank == 0)
+      if (sweep_length > 1)
       {
-        for (int k = 0; k < omega_length; k++)
+        MPI_Reduce(&wtime, &wtime_sum, 1, MPI_DOUBLE, MPI_SUM, 0, grid_comm);
+        if (proc_rank == 0)
         {
-          iters_sweep_vs_omega[j][k] = iters[k];
+          for (int k = 0; k < omega_length; k++)
+          {
+            iters_sweep_vs_omega[j][k] = iters[k];
+            times_sweep_vs_omega[j][k] = wtime_sum;
+          }
         }
       }
     }
