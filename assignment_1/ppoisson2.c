@@ -49,6 +49,7 @@ double wtime;
 double *wtimes;
 int count;
 int *iters;
+int current_iter;
 double wtime_sum;
 
 /* local grid related variables */
@@ -624,6 +625,7 @@ void Solve()
   }
 
   printf("(%i) Gridsize: %i,  Omega: %.2f, Iterations: %i, Error: %.2e\n", proc_rank, gridsize[X_DIR], omega, count, global_delta);
+  current_iter = count;
 }
 
 void Write_Grid()
@@ -706,12 +708,15 @@ void Benchmark()
     }
 
     // Assign values to the elements
-    for (i = 0; i < 2; i++) {
-        for (p = 0; p < P; p++) {
-            for (j = 0; j < omega_length; j++) {
-                benchmark[i][p][j] = 0.0;
-            }
+    for (i = 0; i < 2; i++)
+    {
+      for (p = 0; p < P; p++)
+      {
+        for (j = 0; j < omega_length; j++)
+        {
+          benchmark[i][p][j] = 0.0;
         }
+      }
     }
 
     for (j = 0; j < omega_length; j++)
@@ -855,7 +860,6 @@ void Sweep_Analysis()
       }
     }
     fclose(f1);
-
   }
 }
 
@@ -892,7 +896,7 @@ void Latency_Analysis()
     }
   }
 
-  MPI_Barrier(grid_comm); 
+  MPI_Barrier(grid_comm);
 
   // gather latencies
   if (proc_rank != 0)
@@ -1124,7 +1128,7 @@ int main(int argc, char **argv)
         }
 
         // benchmarking
-        iters[i] = count;
+        iters[i] = current_iter;
         wtimes[i] = wtime;
         cpu_util[i] = 100.0 * ticks * (1.0 / CLOCKS_PER_SEC) / wtime;
 
