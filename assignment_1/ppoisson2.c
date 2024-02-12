@@ -634,10 +634,8 @@ void Solve()
 
     count++;
     
-    if (count % sweep == 0)
-    {
-      MPI_Allreduce(&delta, &global_delta, 1, MPI_DOUBLE, MPI_MAX, grid_comm);
-    }
+    MPI_Allreduce(&delta, &global_delta, 1, MPI_DOUBLE, MPI_MAX, grid_comm);
+    
 
     if (proc_rank == 0)
     {
@@ -1081,56 +1079,58 @@ void Exchange_Borders()
 {
   // Debug("Exchange_Borders", 0);
   double latency_start;
-
-  if (latency_flag)
+  if (count % sweep == 0)
   {
-    // top to bottom and bottom to top exchange
-    MPI_Barrier(grid_comm);
-    latency_start = MPI_Wtime();
-    MPI_Sendrecv(&phi[1][1], 1, border_type[Y_DIR], proc_top, 0,
-                 &phi[1][dim[Y_DIR] - 1], 1, border_type[Y_DIR], proc_bottom, 0, grid_comm, &status);
-    if (proc_top > 0)
+    if (latency_flag)
     {
-      latency += MPI_Wtime() - latency_start;
-      byte += 2 * (dim[Y_DIR] - 2) * sizeof(double);
+      // top to bottom and bottom to top exchange
+      MPI_Barrier(grid_comm);
+      latency_start = MPI_Wtime();
+      MPI_Sendrecv(&phi[1][1], 1, border_type[Y_DIR], proc_top, 0,
+                  &phi[1][dim[Y_DIR] - 1], 1, border_type[Y_DIR], proc_bottom, 0, grid_comm, &status);
+      if (proc_top > 0)
+      {
+        latency += MPI_Wtime() - latency_start;
+        byte += 2 * (dim[Y_DIR] - 2) * sizeof(double);
+      }
+      latency_start = MPI_Wtime();
+      MPI_Sendrecv(&phi[1][dim[Y_DIR] - 2], 1, border_type[Y_DIR], proc_bottom, 0,
+                  &phi[1][0], 1, border_type[Y_DIR], proc_top, 0, grid_comm, &status); /*  all  traffic in direction "bottom"        */
+      if (proc_bottom > 0)
+      {
+        latency += MPI_Wtime() - latency_start;
+        byte += 2 * (dim[Y_DIR] - 2) * sizeof(double);
+      }
+      // left to right and right to left exchange
+      MPI_Barrier(grid_comm);
+      latency_start = MPI_Wtime();
+      MPI_Sendrecv(&phi[1][1], 1, border_type[X_DIR], proc_left, 0,
+                  &phi[dim[X_DIR] - 1][1], 1, border_type[X_DIR], proc_right, 0, grid_comm, &status); /* all traffic in direction "left" */
+      if (proc_left > 0)
+      {
+        latency += MPI_Wtime() - latency_start;
+        byte += 2 * (dim[X_DIR] - 2) * sizeof(double);
+      }
+      latency_start = MPI_Wtime();
+      MPI_Sendrecv(&phi[dim[X_DIR] - 2][1], 1, border_type[X_DIR], proc_right, 0,
+                  &phi[0][1], 1, border_type[X_DIR], proc_left, 0, grid_comm, &status); /* all traffic in the direction "right" */
+      if (proc_right > 0)
+      {
+        latency += MPI_Wtime() - latency_start;
+        byte += 2 * (dim[X_DIR] - 2) * sizeof(double);
+      }
     }
-    latency_start = MPI_Wtime();
-    MPI_Sendrecv(&phi[1][dim[Y_DIR] - 2], 1, border_type[Y_DIR], proc_bottom, 0,
-                 &phi[1][0], 1, border_type[Y_DIR], proc_top, 0, grid_comm, &status); /*  all  traffic in direction "bottom"        */
-    if (proc_bottom > 0)
+    else
     {
-      latency += MPI_Wtime() - latency_start;
-      byte += 2 * (dim[Y_DIR] - 2) * sizeof(double);
+      MPI_Sendrecv(&phi[1][1], 1, border_type[Y_DIR], proc_top, 0,
+                  &phi[1][dim[Y_DIR] - 1], 1, border_type[Y_DIR], proc_bottom, 0, grid_comm, &status);
+      MPI_Sendrecv(&phi[1][dim[Y_DIR] - 2], 1, border_type[Y_DIR], proc_bottom, 0,
+                  &phi[1][0], 1, border_type[Y_DIR], proc_top, 0, grid_comm, &status);
+      MPI_Sendrecv(&phi[1][1], 1, border_type[X_DIR], proc_left, 0,
+                  &phi[dim[X_DIR] - 1][1], 1, border_type[X_DIR], proc_right, 0, grid_comm, &status);
+      MPI_Sendrecv(&phi[dim[X_DIR] - 2][1], 1, border_type[X_DIR], proc_right, 0,
+                  &phi[0][1], 1, border_type[X_DIR], proc_left, 0, grid_comm, &status);
     }
-    // left to right and right to left exchange
-    MPI_Barrier(grid_comm);
-    latency_start = MPI_Wtime();
-    MPI_Sendrecv(&phi[1][1], 1, border_type[X_DIR], proc_left, 0,
-                 &phi[dim[X_DIR] - 1][1], 1, border_type[X_DIR], proc_right, 0, grid_comm, &status); /* all traffic in direction "left" */
-    if (proc_left > 0)
-    {
-      latency += MPI_Wtime() - latency_start;
-      byte += 2 * (dim[X_DIR] - 2) * sizeof(double);
-    }
-    latency_start = MPI_Wtime();
-    MPI_Sendrecv(&phi[dim[X_DIR] - 2][1], 1, border_type[X_DIR], proc_right, 0,
-                 &phi[0][1], 1, border_type[X_DIR], proc_left, 0, grid_comm, &status); /* all traffic in the direction "right" */
-    if (proc_right > 0)
-    {
-      latency += MPI_Wtime() - latency_start;
-      byte += 2 * (dim[X_DIR] - 2) * sizeof(double);
-    }
-  }
-  else
-  {
-    MPI_Sendrecv(&phi[1][1], 1, border_type[Y_DIR], proc_top, 0,
-                 &phi[1][dim[Y_DIR] - 1], 1, border_type[Y_DIR], proc_bottom, 0, grid_comm, &status);
-    MPI_Sendrecv(&phi[1][dim[Y_DIR] - 2], 1, border_type[Y_DIR], proc_bottom, 0,
-                 &phi[1][0], 1, border_type[Y_DIR], proc_top, 0, grid_comm, &status);
-    MPI_Sendrecv(&phi[1][1], 1, border_type[X_DIR], proc_left, 0,
-                 &phi[dim[X_DIR] - 1][1], 1, border_type[X_DIR], proc_right, 0, grid_comm, &status);
-    MPI_Sendrecv(&phi[dim[X_DIR] - 2][1], 1, border_type[X_DIR], proc_right, 0,
-                 &phi[0][1], 1, border_type[X_DIR], proc_left, 0, grid_comm, &status);
   }
 }
 
