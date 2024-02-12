@@ -1,7 +1,7 @@
 \section{Parallel Poisson solver}
 
 \subsection{parallellisation of the Poisson solver}
-\begin{figure}[h]
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{figures/poisson_surface.png}
     \caption{Surface plots of parallel poisson solution various (process) grid shapes.}
@@ -17,4 +17,65 @@ Variables:
     \item pt: processor topology in form pxy, where p: number of processors used $\mathrm{x}$ : number of processors in $\mathrm{x}$ - direction $y$ : number of processors in y-direction
 \end{itemize}
 
+\subsubsection{Algorithmic improvements}
+
 \subsubsection{optimal value for $\omega$}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/optimal_omega_22.png}
+    \caption{Surface plot of number of iterations depending on omega and grid size for a $2\times2$ process grid.}
+    \label{fig:optimal_omega_22}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/optimal_omega_41.png}
+    \caption{Surface plot of number of iterations depending on omega and grid size for a $4\times1$ process grid.}
+    \label{fig:optimal_omega_41}
+\end{figure}
+
+\subsubsection{time versus iterations}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/timeviters.png}
+    \caption{Time versus iterations for different grid sizes and process topologies.}
+    \label{fig:timeviters}
+\end{figure}
+
+\subsubsection{domain partitioning}
+\todo{write about favourable domain partitioning}
+
+\subsubsection{iterations versus problem size}
+see figures \ref{fig:optimal_omega_22} and \ref{fig:optimal_omega_41}.
+
+\subsubsection{error of 800$\times$800 grid}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/error_800x800.png}
+    \caption{Error evolution versus iteration.}
+    \label{fig:error_800}
+\end{figure}
+
+\subsubsection{Global error communication reduction(optional)}
+\todo{implement sweeps over allreduce and compare to standard implementation.}
+
+\subsubsection{Border communication reduction}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/sweep_analysis.png}
+    \caption{Iterations versus number of sweeps (right) and time versus number of sweeps (left).}
+    \label{fig:sweep_analysis}
+\end{figure}
+
+\subsubsection{time spent in border exchange (optional)} 
+\todo{perform latency analysis for uniform (proces) grids sizes}
+
+\subsubsection{latency in test problem}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/latency_analysis.png}
+    \caption{Latency analysis for different (proces) grid sizes. Shown is the moving average of with a window size of 10\% of the data.}
+    \label{fig:latency_analysis}
+\end{figure}
+
+\subsubsection{On Optimization of border exchange} 

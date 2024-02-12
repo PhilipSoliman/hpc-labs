@@ -3,11 +3,14 @@ from pathlib import Path
 from sys import path, argv
 from pathlib import Path
 import matplotlib.pyplot as plt
+import numpy as np
+
 
 def get_root() -> Path:
     file_abs_path = abspath(dirname(__file__))
     return Path(file_abs_path).parent
     # return Path(getcwd()).resolve()
+
 
 # get CLI
 def get_cli_args() -> dict:
@@ -24,6 +27,7 @@ def get_cli_args() -> dict:
         args_d["output"] = output
     return args_d
 
+
 def get_metadata(file: Path) -> dict:
     metadata = {}
     metas = file.name.split("_")
@@ -37,6 +41,7 @@ def get_metadata(file: Path) -> dict:
         else:
             metadata["header"] = meta
     return metadata
+
 
 def scientific_fmt(s: float, prec: int = 2) -> str:
     specifier = f"{{:.{prec}e}}"
@@ -53,6 +58,7 @@ def scientific_fmt(s: float, prec: int = 2) -> str:
     else:
         out = mantissa + r"$\times 10^{" + sign + exponent + "}$"
     return out
+
 
 # set standard matploylib style
 def set_style():
@@ -93,6 +99,9 @@ def set_style():
     plt.rcParams["savefig.bbox"] = "tight"
     plt.rcParams["savefig.pad_inches"] = 0.1
     plt.rcParams["savefig.format"] = "pdf"
-    plt.rcParams["savefig.transparent"] = True
+    plt.rcParams["savefig.transparent"] = False
     plt.rcParams["savefig.orientation"] = "landscape"
     # plt.rcParams["savefig.frameon"] = False
+
+def moving_average(x, w):
+    return np.convolve(x, np.ones(w), "valid") / w
