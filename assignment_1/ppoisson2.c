@@ -610,7 +610,6 @@ void Solve()
     time_by_iteration = malloc(sizeof(double));
     time_by_iteration[0] = 0.0;
     time_by_iteration_size++;
-
   }
   while (global_delta > precision_goal && count < max_iter)
   {
@@ -633,12 +632,12 @@ void Solve()
 
     delta = max(delta1, delta2);
 
+    count++;
+    
     if (count % sweep == 0)
     {
       MPI_Allreduce(&delta, &global_delta, 1, MPI_DOUBLE, MPI_MAX, grid_comm);
     }
-
-    count++;
 
     if (proc_rank == 0)
     {
