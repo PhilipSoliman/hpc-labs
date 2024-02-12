@@ -91,6 +91,12 @@ double byte;
 double *bytes;
 int latency_length;
 
+/*time v iterations*/
+double* time_by_iteration;
+int timeviter_flag;
+int time_by_iteration_size = 0;
+
+
 /* function declarations */
 void Setup_Grid();
 void Setup_Proc_Grid(int argc, char **argv);
@@ -104,6 +110,7 @@ void Benchmark();
 void Error_Analysis();
 void Sweep_Analysis();
 void Latency_Analysis();
+void timeVIteration();
 void Clean_Up_Problemdata();
 void Clean_Up_Metadata();
 void Debug(char *mesg, int terminate);
@@ -509,6 +516,25 @@ void Get_CLIs(int argc, char **argv)
           latency_flag = 0;
         }
       }
+      
+      if (strcmp(argv[l], "-timeviter") == 0)
+      {
+        if (strcmp(argv[l + 1], "true") == 0)
+        {
+          printf("(%i) Time per iteration \n", proc_rank);
+          timeviter_flag = 1;
+        }
+        else if (strcmp(argv[l + 1], "false") == 0)
+        {
+          printf("(%i) No time per iteration\n", proc_rank);
+          timeviter_flag = 0;
+        }
+        else
+        {
+          printf("(%i) Invalid timeviter flag, using default\n", proc_rank);
+          timeviter_flag = 0;
+        }
+      }
 
       l++;
     }
@@ -580,6 +606,9 @@ void Solve()
   {
     errors = malloc(sizeof(double));
     errors[0] = global_delta;
+    time_by_iteration = malloc(sizeof(double));
+    time_by_iteration[0] = 0.0;
+    time_by_iteration_size++;
   }
   while (global_delta > precision_goal && count < max_iter)
   {
@@ -608,8 +637,13 @@ void Solve()
 
     if (proc_rank == 0)
     {
+      stop_timer();
       errors = realloc(errors, (count + 1) * sizeof(double));
       errors[count] = global_delta;
+      time_by_iteration = realloc(time_by_iteration, (count + 1) * sizeof(double));
+      time_by_iteration[count] = wtime;
+      time_by_iteration_size++;
+      resume_timer();
     }
 
     if (latency_flag)
@@ -959,6 +993,24 @@ void Latency_Analysis()
   }
 }
 
+void timeVIteration()
+{
+  char fn[200];
+  if (proc_rank == 0)
+  {
+    generate_fn(fn, "timeviters", "");
+    FILE *f = fopen(fn, "w");
+    if (f == NULL)
+      Debug("Error opening timeviter file", 1);
+
+    for (int i = 0; i < time_by_iteration_size; i++)
+    {
+      fwrite(&time_by_iteration[i], sizeof(double), 1, f);
+    }
+    fclose(f);
+  }
+}
+
 void Clean_Up_Problemdata()
 {
   // Debug("Clean_Up", 0);
@@ -1161,6 +1213,11 @@ int main(int argc, char **argv)
     if (sweep_length > 1)
     {
       Sweep_Analysis();
+    }
+
+    if (timeviter_flag == 1)
+    {
+      timeVIteration();
     }
   }
 
