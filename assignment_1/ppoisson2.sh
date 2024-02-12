@@ -18,4 +18,4 @@ module load openmpi
 cd ~/HPC/hpc-labs/assignment_1/
 
 mpicc ppoisson2.c -o ppoisson2.x
-srun ppoisson2.x 2 2 -grid 100 -omega 1.95 -sweeps 1 100 5
+srun ppoisson2.x 4 1 -omega 1.91 -grid 100 -sweeps 1 100 1

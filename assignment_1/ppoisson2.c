@@ -643,7 +643,6 @@ void Solve()
     {
       errors = realloc(errors, (count + 1) * sizeof(double));
       errors[count] = global_delta;
-      printf("(%i) i: %i error = %2.5f\n", proc_rank, count, global_delta);
       time_by_iteration = realloc(time_by_iteration, (count + 1) * sizeof(double));
       time_by_iteration[count] = MPI_Wtime()-iter_time;
       time_by_iteration_size++;
@@ -893,10 +892,22 @@ void Sweep_Analysis()
     {
       for (int j = 0; j < omega_length; j++)
       {
-        fwrite(&times_sweep_vs_omega[i][j], sizeof(int), 1, f);
+        fwrite(&times_sweep_vs_omega[i][j], sizeof(double), 1, f);
       }
     }
     fclose(f1);
+
+    generate_fn(fn, "sweep_analysis", "sweeps");
+    FILE *f2 = fopen(fn, "w");
+    if (f2 == NULL)
+      Debug("Error opening sweep file", 1);
+
+    for (int i = 0; i < sweep_length; i++)
+    {
+      fwrite(&sweeps[i], sizeof(int), 1, f2);
+    }
+    fclose(f2);
+
   }
 }
 
