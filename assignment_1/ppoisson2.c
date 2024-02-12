@@ -1094,7 +1094,7 @@ void Exchange_Borders()
         latency += MPI_Wtime() - latency_start;
         // byte += 2 * (dim[X_DIR] - 2) * sizeof(double);
         MPI_Type_size(border_type[Y_DIR], &data_size);
-        byte += 2 * data_size * sizeof(double);
+        byte += 2 * data_size;
       }
       
       latency_start = MPI_Wtime();
@@ -1105,7 +1105,7 @@ void Exchange_Borders()
         latency += MPI_Wtime() - latency_start;
         // byte += 2 * (dim[X_DIR] - 2) * sizeof(double);
         MPI_Type_size(border_type[Y_DIR], &data_size);
-        byte += 2 * data_size * sizeof(double);
+        byte += 2 * data_size;
       }
       
       // left to right and right to left exchange
@@ -1118,7 +1118,7 @@ void Exchange_Borders()
         latency += MPI_Wtime() - latency_start;
         // byte += 2 * (dim[X_DIR] - 2) * sizeof(double);
         MPI_Type_size(border_type[X_DIR], &data_size);
-        byte += 2 * data_size * sizeof(double);      
+        byte += 2 * data_size;      
       }
       
       latency_start = MPI_Wtime();
@@ -1129,7 +1129,7 @@ void Exchange_Borders()
         latency += MPI_Wtime() - latency_start;
         // byte += 2 * (dim[X_DIR] - 2) * sizeof(double);
         MPI_Type_size(border_type[X_DIR], &data_size);
-        byte += 2 * data_size * sizeof(double);      
+        byte += 2 * data_size;      
       }
     }
     else
