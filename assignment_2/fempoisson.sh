@@ -18,5 +18,5 @@ module load openmpi
 cd ~/HPC/hpc-labs/assignment_2/
 
 make
-srun GridDist.x 5 5 1000 1000
+srun GridDist.x 4 4 1000 1000 adapt
 srun MPI_Fempois.x
