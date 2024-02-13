@@ -88,23 +88,6 @@ rows[0] = header
 procs = sorted([int(MMMeta[i]["nproc"]) for i in range(len(MMMeta))])
 
 
-def scientific_fmt(s: float, prec: int = 2) -> str:
-    specifier = f"{{:.{prec}e}}"
-    scientific_str = specifier.format(s)
-    mantissa, exponent = scientific_str.split("e")
-    if exponent[0] == "+":
-        sign = ""
-    elif exponent[0] == "-":
-        sign = "-"
-    if exponent[1] == "0":
-        exponent = exponent[2:]
-    if exponent == "0":
-        out = mantissa
-    else:
-        out = mantissa + r"$\times 10^{" + sign + exponent + "}$"
-    return out
-
-
 for i in range(len(MMTimes_T)):
     measurements = MMTimes_T[i]
     for j, [seq, par, speedup, size] in enumerate(measurements):

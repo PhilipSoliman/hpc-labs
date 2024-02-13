@@ -211,8 +211,6 @@ for i, data in benchmarkData.items():
         overlap = np.sum(computation) / np.sum(communication)  # sum over all processors
         overlaps[adapt].append(overlap)
 
-pprint(pgrids)
-pprint(overlaps)
 
 fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(10, 5), sharex=True, sharey=True)
 for adapt, pgrid in pgrids.items():
@@ -252,7 +250,7 @@ grids = ["100x100", "200x200", "400x400"]
 pgrids = ["2x2", "4x1"]
 adapt_times = np.zeros((len(grids), len(pgrids)))
 nadapt_times = np.zeros((len(grids), len(pgrids)))
-total_times = {}
+total_times = np.zeros((len(grids), len(pgrids)))
 fig, axs = plt.subplots(
     nrows=len(grids), ncols=len(pgrids), figsize=(10, 15), sharey=True
 )
@@ -260,24 +258,29 @@ for i, data in benchmarkData.items():
     meta = data["meta"]
     grid = meta["grid"]
     pgrid = meta["procg"]
-    times = data.get("times")
-    if times is not None:
-        total_time = np.sum(times) / 4
-    if meta["type"] != "error":
+    if pgrid not in pgrids:
         continue
-    if grid in grids:
+    if grid not in grids:
+        continue
+    ridx = grids.index(grid)
+    cidx = pgrids.index(pgrid)
+    if meta["type"] == "times":
+        adapt = int(meta["adapt"])
+        times = data["times"]
+        if adapt == 0: nadapt_times[ridx][cidx] = np.sum(times) / 4
+        if adapt == 1: adapt_times[ridx][cidx] = np.sum(times) / 4
+        continue
+    if meta["type"] == "error":
         ridx = grids.index(grid)
         cidx = pgrids.index(pgrid)
         ax = axs[ridx][cidx]
         error = data["error"]
         if meta["adapt"] == "0":
-            adapt_times[ridx][cidx] = total_time
             if cidx == 0:
                 ax.plot(error, label="non-adaptive")
             else:
                 ax.plot(error)
         if meta["adapt"] == "1":
-            nadapt_times[ridx][cidx] = total_time
             if cidx == 0:
                 ax.plot(error, label="adaptive")
             else:
@@ -291,14 +294,18 @@ for i, data in benchmarkData.items():
             ax.set_title(f"{grid}", loc="left")
         if ridx == 0:
             ax.set_title(f"{pgrid}", loc="center")
+
 # add delta time
+speedup = (adapt_times - nadapt_times)/nadapt_times * 100
 for i in range(len(grids)):
     for j in range(len(pgrids)):
         axs[i][j].set_title(
-            f"{axs[i][j].get_title()}\n$\Delta t = {adapt_times[i][j] - nadapt_times[i][j]:.2f} s$",
+            r"$\frac{\Delta t}{t} = " + f"{speedup[i][j]:.2f} \%$",
             loc="right",
-            fontsize=12,
+            fontsize=14,
         )
+pprint(adapt_times)
+pprint(nadapt_times)
 
 # save plot
 filename = f"fempoisson_error_evolution.png"
