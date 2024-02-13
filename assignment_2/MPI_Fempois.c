@@ -158,7 +158,7 @@ void Debug(char *mesg, int terminate)
 void generate_filename(char *fn, char *folder, char *type)
 {
   sprintf(fn, "%s/nproc=%i_procg=%ix%i_grid=%ix%i_nvert=%i_adapt=%i_%s.dat",
-          folder, P_grid[0]*P_grid[1], P_grid[0], P_grid[1], grid_size[0], grid_size[1],
+          folder, P_grid[0] * P_grid[1], P_grid[0], P_grid[1], grid_size[0], grid_size[1],
           N_vert_total, do_adapt, type);
 }
 
@@ -287,6 +287,7 @@ void Setup_Grid()
     Debug("Setup_Grid : Can't open data inputfile", 1);
   fscanf(f, "N_vert: %i\n%*[^\n]\n", &N_vert);
   io_time += MPI_Wtime() - arbitrary_time;
+  printf("(%i) N_vert: %d\n", proc_rank, N_vert);
 
   /* allocate memory for phi and A */
   if ((vert = malloc(N_vert * sizeof(Vertex))) == NULL)
@@ -565,7 +566,7 @@ void Solve()
   if (proc_rank == 0)
   {
     if ((errors = malloc(sizeof(double))) == NULL)
-        Debug("Solve : malloc(errors) failed", 1);
+      Debug("Solve : malloc(errors) failed", 1);
   }
   computation_time += MPI_Wtime() - arbitrary_time;
   while ((count < max_iter) && (r1 > precision_goal))
@@ -693,8 +694,11 @@ void Write_Grid()
   if ((f = fopen(filename, "w")) == NULL)
     Debug("Write_Grid : Can't open data outputfile", 1);
 
-  if (fwrite(out, sizeof(double), N_vert * 3, f) != 3 * N_vert)
-    Debug("Write_Grid : Error during writing", 1);
+  for (i = 0; i < N_vert; i++)
+  {
+    if (fwrite(out[i], sizeof(double), 3, f) != 3)
+      Debug("Write_Grid : Error during writing", 1);
+  }
 
   fclose(f);
   io_time += MPI_Wtime() - arbitrary_time;
@@ -708,7 +712,14 @@ void Write_Grid()
   }
 
   arbitrary_time = MPI_Wtime();
-  MPI_Gather(&out_size, 1, MPI_INT, sizes, 1, MPI_INT, 0, grid_comm);
+  if (proc_rank == 0)
+  {
+    sizes[0] = out_size;
+    for (i = 1; i < P; i++)
+      MPI_Recv(&sizes[i], 1, MPI_INT, i, 0, grid_comm, &status);
+  }
+  else
+    MPI_Send(&out_size, 1, MPI_INT, 0, 0, grid_comm);
   communication_time += MPI_Wtime() - arbitrary_time;
 
   // combine output files into one on root process
@@ -718,7 +729,7 @@ void Write_Grid()
     int read_size;
     for (i = 0; i < P; i++)
       N_vert_total += sizes[i];
-      printf("N_vert_total: %d\n", N_vert_total);
+    printf("N_vert_total: %d\n", N_vert_total);
 
     // allocate memory for combined file
     if ((tmp = malloc(3 * N_vert_total * sizeof(double))) == NULL)
@@ -737,8 +748,6 @@ void Write_Grid()
       io_time += MPI_Wtime() - arbitrary_time;
 
       read_size = fread(&tmp[3 * (out_size - sizes[0])], sizeof(double), 3 * out_size, f);
-      // printf("read_size: %d\n", read_size);
-      // printf("out_size: %d\n", out_size);
       if (read_size != 3 * out_size)
       {
         Debug("Write_Grid : Error during reading", 1);
@@ -758,8 +767,11 @@ void Write_Grid()
     if ((f_combined = fopen(filename, "w")) == NULL)
       Debug("Write_Grid : Can't open combined data outputfile", 1);
 
-    if (fwrite(tmp, sizeof(double), 3 * N_vert_total, f_combined) != 3 * N_vert_total)
-      Debug("Write_Grid : Error during writing", 1);
+    for (i = 0; i < N_vert_total; i++)
+    {
+      if (fwrite(&tmp[3 * i], sizeof(double), 3, f_combined) != 3)
+        Debug("Write_Grid : Error during writing", 1);
+    }
 
     fclose(f_combined);
     io_time += MPI_Wtime() - arbitrary_time;
@@ -810,14 +822,33 @@ void Benchmark()
   tmp[3] = idle_time;
   tmp[4] = io_time;
 
-  if ((out = malloc(P * sizeof(double *))) == NULL)
-    Debug("Benchmark : malloc(out) failed", 1);
-  for (int i = 0; i < P; i++)
-    if ((out[i] = malloc(5 * sizeof(double))) == NULL)
-      Debug("Benchmark : malloc(out[i]) failed", 1);
+  printf("(%i) succesful allocation of tmp array!\n", proc_rank);
 
+  // allocate contugious memory for out array
+  if (proc_rank == 0)
+  {
+    if ((out = malloc(P * sizeof(double *))) == NULL)
+        Debug("Benchmark : malloc(out) failed", 1);
+    if ((out[0] = malloc(P * 5 * sizeof(double))) == NULL)
+        Debug("Benchmark : malloc(out[0]) failed", 1);
+    for (int i = 1; i < P; i++)
+        out[i] = out[i - 1] + 5;
+    printf("(%i) succesful allocation of out array!\n", proc_rank);
+  }
   // collect all times into out array
-  MPI_Gatherv(tmp, 5, MPI_DOUBLE, out, sizes, displacement, MPI_DOUBLE, 0, grid_comm);
+  
+  if (proc_rank != 0)
+  {
+    MPI_Send(tmp, 5, MPI_DOUBLE, 0, 0, grid_comm);
+  }
+  else
+  {
+    out[0] = tmp;
+    for (int p = 1; p < P; p++)
+      MPI_Recv(&out[p][0], 5, MPI_DOUBLE, p, 0, grid_comm, &status);
+  }
+
+  printf("(%i) succesful gathering of times!\n", proc_rank);
 
   if (proc_rank == 0)
   {
@@ -827,11 +858,17 @@ void Benchmark()
     if ((f = fopen(filename, "w")) == NULL)
       Debug("Benchmark : Can't open times outputfile", 1);
 
-    if (fwrite(out, sizeof(double), 5 * P, f) != 5 * P)
-      Debug("Benchmark : Error during writing", 1);
+    for (int i = 0; i < P; i++)
+    {
+      if (fwrite(out[i], sizeof(double), 5, f) != 5)
+        Debug("Benchmark : Error during writing", 1);
+    }
 
     fclose(f);
+    free(out[0]);
+    free(out);
   }
+
 }
 
 void Error_Analysis()
@@ -844,8 +881,11 @@ void Error_Analysis()
     if ((f = fopen(filename, "w")) == NULL)
       Debug("Error_Analysis : Can't open error outputfile", 1);
 
-    if (fwrite(errors, sizeof(double), N_iters, f) != N_iters)
-      Debug("Error_Analysis : Error during writing", 1);
+    for (int i = 0; i < N_iters; i++)
+    {
+      if (fwrite(&errors[i], sizeof(double), 1, f) != 1)
+        Debug("Error_Analysis : Error during writing", 1);
+    }
 
     fclose(f);
   }

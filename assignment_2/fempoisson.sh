@@ -4,7 +4,7 @@
 #SBATCH --partition=compute
 #SBATCH --time=0:00:30
 #SBATCH --nodes=1
-#SBATCH --ntasks=9
+#SBATCH --ntasks=4
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=1G
 #SBATCH --account=Education-EEMCS-Courses-IN4049TU
@@ -18,5 +18,5 @@ module load openmpi
 cd ~/HPC/hpc-labs/assignment_2/
 
 make
-srun GridDist.x 2 2 400 400 adapt
+srun GridDist.x 4 1 100 100 adapt
 srun MPI_Fempois.x
