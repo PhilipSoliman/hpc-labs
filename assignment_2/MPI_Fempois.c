@@ -523,8 +523,8 @@ void Exchange_Borders(double *vect)
   {
     for (i = 0; i < N_neighb; i++)
     {
-      MPI_Sendrecv(&phi[0], 1, send_type[i], proc_neighb[i], 0,
-                   &phi[0], 1, recv_type[i], proc_neighb[i], 0, grid_comm, &status);
+      MPI_Sendrecv(vect, 1, send_type[i], proc_neighb[i], 0,
+                   vect, 1, recv_type[i], proc_neighb[i], 0, grid_comm, &status);
     }
   }
 }
@@ -832,15 +832,15 @@ void Benchmark()
   if (proc_rank == 0)
   {
     if ((out = malloc(P * sizeof(double *))) == NULL)
-        Debug("Benchmark : malloc(out) failed", 1);
+      Debug("Benchmark : malloc(out) failed", 1);
     if ((out[0] = malloc(P * 5 * sizeof(double))) == NULL)
-        Debug("Benchmark : malloc(out[0]) failed", 1);
+      Debug("Benchmark : malloc(out[0]) failed", 1);
     for (int i = 1; i < P; i++)
-        out[i] = out[i - 1] + 5;
+      out[i] = out[i - 1] + 5;
     printf("(%i) succesful allocation of out array!\n", proc_rank);
   }
   // collect all times into out array
-  
+
   if (proc_rank != 0)
   {
     MPI_Send(tmp, 5, MPI_DOUBLE, 0, 0, grid_comm);
@@ -872,7 +872,6 @@ void Benchmark()
     free(out[0]);
     free(out);
   }
-
 }
 
 void Error_Analysis()
