@@ -2,13 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 from pprint import pprint
-import python_utils.python_utils as pyutils
+import python_utils as pyutils
 
 # get CLI
 args_d = pyutils.get_cli_args()
 
 # clear plots if necessary
-if args_d.get("output") or __name__ == "__main__":
+if args_d.get("output"):
     plt.close("all")
 
 # set standard matploylib style
@@ -255,7 +255,7 @@ for i, dat in sweepData.items():
     ax.set_title("Iterations")
     ax.set_xlabel("Sweeps")
     ax = axs[1]
-    ax.plot(dat["sweeps"], dat["times"]/dat["iters"], label=dat["meta"]["procg"])
+    ax.plot(dat["sweeps"], dat["times"] / dat["iters"], label=dat["meta"]["procg"])
     ax.set_title("time/iteration")
 
 filename = f"sweep_analysis.png"
@@ -288,24 +288,24 @@ for i, file in enumerate(outputFiles):
     latencyData[i]["overhead"] = overhead_avg
     latencyData[i]["bytes"] = bytes_avg
 
-# plot moving avarage bandwidth for several grid sizes 
+# plot moving avarage bandwidth for several grid sizes
 gridsizes = ["100x100", "200x200", "400x400", "800x800"]
 fig, axs = plt.subplots(2, 2, squeeze=True, sharey=True)
 number_of_pgrids = len(pgrids)
-number_of_grids  = len(gridsizes)
+number_of_grids = len(gridsizes)
 # window_size = 20
 for i, dat in latencyData.items():
     gridsize = dat["meta"]["gs"]
     if gridsize in gridsizes:
         depth = i // number_of_grids
         I = gridsizes.index(gridsize)
-        row_idx = I // 2 
+        row_idx = I // 2
         col_idx = I % 2
         ax = axs[row_idx][col_idx]
         number_of_iters = len(dat["overhead"])
-        window_size =  number_of_iters // 10 # ~10% of the iterations
-        bandwith = pyutils.moving_average(dat["bytes"]/dat["overhead"], window_size)
-        ax.plot(bandwith*1e-9, label=dat["meta"]["procg"])
+        window_size = number_of_iters // 10  # ~10% of the iterations
+        bandwith = pyutils.moving_average(dat["bytes"] / dat["overhead"], window_size)
+        ax.plot(bandwith * 1e-9, label=dat["meta"]["procg"])
         ax.set_title(gridsize)
 
 axs[0][0].set_xlabel("Iterations")
@@ -320,5 +320,5 @@ filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
 
 # clear plots if necessary
-if args_d.get("output") or __name__ == "__main__":
+if args_d.get("output"):
     plt.show()

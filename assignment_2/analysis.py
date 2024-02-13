@@ -2,14 +2,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 from pprint import pprint
-import python_utils.python_utils as pyutils
+import python_utils as pyutils
 from matplotlib import cm
 
 # get CLI
 args_d = pyutils.get_cli_args()
 
 # clear plots if necessary
-if args_d.get("output") or __name__ == "__main__":
+if args_d.get("output"):
     plt.close("all")
 
 # set standard matploylib style
@@ -104,22 +104,22 @@ for i, data in benchmarkData.items():
         times = data["times"]
         if grid in grids:
             rowidx = grids.index(grid)
-        if procg == "2x2":
-            ax = axs[rowidx, 0]
-            ax.set_title(f"{grid}", loc="left")
-        elif procg == "4x1":
-            ax = axs[rowidx, 1]
-        for j, col in enumerate(cols):
-            ax.bar(
-                x,
-                times[:, j],
-                width,
-                label=col,
-                bottom=bottom,
-            )
-            bottom += times[:, j]
-        if rowidx == 0:
-            ax.set_title(f"{procg}")
+            if procg == "2x2":
+                ax = axs[rowidx, 0]
+                ax.set_title(f"{grid}", loc="left")
+            elif procg == "4x1":
+                ax = axs[rowidx, 1]
+            for j, col in enumerate(cols):
+                ax.bar(
+                    x,
+                    times[:, j],
+                    width,
+                    label=col,
+                    bottom=bottom,
+                )
+                bottom += times[:, j]
+            if rowidx == 0:
+                ax.set_title(f"{procg}")
 
 # place legend in the
 axs[0, 0].legend(fontsize=10)
@@ -299,13 +299,12 @@ for i in range(len(grids)):
             loc="right",
             fontsize=12,
         )
-print(adapt_times)
-print(nadapt_times)
+
 # save plot
 filename = f"fempoisson_error_evolution.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, pad_inches=0.5, bbox_inches="tight")
 
 plt.tight_layout()
-if args_d.get("output") or __name__ == "__main__":
+if args_d.get("output"):
     plt.show()
