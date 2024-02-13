@@ -658,7 +658,7 @@ void Solve()
 
 void Write_Grid()
 {
-  int i, j;
+  int i, j, idx;
   char filename[100];
   FILE *f;
   double **out;
@@ -736,6 +736,7 @@ void Write_Grid()
       Debug("Write_Grid : malloc(tmp) failed", 1);
 
     // gather output
+    idx = 0;
     for (i = 0; i < P; i++)
     {
       out_size = sizes[i];
@@ -747,7 +748,7 @@ void Write_Grid()
         Debug("Write_Grid : Can't open data outputfile", 1);
       io_time += MPI_Wtime() - arbitrary_time;
 
-      read_size = fread(&tmp[3 * (out_size - sizes[0])], sizeof(double), 3 * out_size, f);
+      read_size = fread(&tmp[idx], sizeof(double), 3 * out_size, f);
       if (read_size != 3 * out_size)
       {
         Debug("Write_Grid : Error during reading", 1);
@@ -759,6 +760,9 @@ void Write_Grid()
 
       // delete file
       remove(filename);
+
+      // increase index
+      idx += 3 * out_size;
     }
 
     FILE *f_combined;
