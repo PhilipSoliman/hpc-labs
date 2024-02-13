@@ -263,8 +263,6 @@ filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
 
 # latency analysis
-plt.close("all")
-
 latencyFolder = root / "assignment_1" / "latency_analysis"
 assert latencyFolder.exists()
 
@@ -324,4 +322,3 @@ fig.savefig(filepath, dpi=300, bbox_inches="tight")
 # clear plots if necessary
 if args_d.get("output") or __name__ == "__main__":
     plt.show()
-    # plt.close("all")
