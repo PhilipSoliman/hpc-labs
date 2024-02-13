@@ -1,15 +1,50 @@
 \section{Parallel FEM Poisson solver}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{figures/fempoisson_surface.png}
+    \caption{Parallel FEM Poisson solver.}
+    \label{fig:parallel_fem}
+\end{figure}
 
 \subsection{Data communication between neighbouring processes}
-\todo{write about impolementation of data communication between neighbouring processes.}
+\todo{write about implementation of data communication between neighbouring processes + code listings.}
 
 \subsection{Benchmarking}
-
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{figures/fempoisson_benchmark.png}
+    \caption{Benchmarking of the parallel FEM Poisson solver.}
+    \label{fig:parallel_fem_benchmark}
+\end{figure}
 \subsection{Data communication estimates}
+\todo{quantify estimates (see notes)}
 
 \subsection{Communication ambiguity}
-\todo{write about communication ambiguity and how it is resolved. Tikz figure?}
+\todo{write about communication ambiguity and how it is handled in grid.c (see notes). Tikz figure?}
 
 \subsection{Communication and computation overlap}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/fempoisson_overlap_vs_gridsize.png}
+    \caption{
+        Communication (global + local) and computation overlap in the parallel FEM Poisson solver for $2\times2$ 
+        and $4\times1$ processes plotted against gridsize.}
+    \label{fig:parallel_fem_overlap_gridsize}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/fempoisson_overlap_vs_processes.png}
+    \caption{
+        Communication (global + local) and computation overlap in the parallel FEM Poisson solver plotted against
+        number of processes.}
+    \label{fig:parallel_fem_overlap_processors}
+\end{figure}
 
 \subsection{Adaptive grid refinement}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{figures/fempoisson_error_evolution.png}
+    \caption{Effect of adaptive grid refinement on error evolution.}
+    \label{fig:parallel_fem_adaptive_refinement}
+\end{figure}
