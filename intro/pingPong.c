@@ -6,8 +6,8 @@
 #include "mpifuncs.h"
 
 // Maximum array size 2^20 = 1048576 elements
-#define NUM_ARRAYS 20
-#define MAX_ARRAY_SIZE 1000000
+#define MAX_ARRAY_SIZE_LEFT_SHIFT 20
+#define MAX_ARRAY_SIZE 1<<MAX_ARRAY_SIZE_LEFT_SHIFT
 #define ASSIGNMENT_FOLDER "/home/psoliman/HPC/hpc-labs/intro/pingPong_times/"
 
 int main(int argc, char **argv)
@@ -48,18 +48,18 @@ int main(int argc, char **argv)
     int numberOfNodes = MPI_getNodeCount();
 
     // initialise arrays to save message length, duration and combined duration
-    int messageLengthArray[NUM_ARRAYS];
-    double timeArray[NUM_ARRAYS];
+    int messageLengthArray[MAX_ARRAY_SIZE_LEFT_SHIFT +1];
+    double timeArray[MAX_ARRAY_SIZE_LEFT_SHIFT +1];
 
     printf("(%i) successfully initialised arrays\n", myRank);
     // double combinedTimeArray[MAX_ARRAY_SIZE_LEFT_SHIFT + 1];
     double startTime, endTime;
 
     // ping pong loop
-    for (j = 0; j < NUM_ARRAYS; j++)
+    for (j = 0; j < MAX_ARRAY_SIZE_LEFT_SHIFT +1; j++)
     {
         // message size obtained using left-shift operator. Also save it.
-        numberOfElementsToSend = (int)(MAX_ARRAY_SIZE/NUM_ARRAYS) * (j+1);
+        numberOfElementsToSend = 1<<j;
 
         if (myRank == 0)
         {
@@ -175,8 +175,8 @@ int main(int argc, char **argv)
     if (myRank == 0)
     {
         // combine message length and duration arrays
-        double timeDataArray[NUM_ARRAYS][2];
-        for (i = 0; i < NUM_ARRAYS; i++)
+        double timeDataArray[MAX_ARRAY_SIZE_LEFT_SHIFT +1][2];
+        for (i = 0; i < MAX_ARRAY_SIZE_LEFT_SHIFT +1; i++)
         {
             timeDataArray[i][0] = messageLengthArray[i];
             timeDataArray[i][1] = timeArray[i];
@@ -192,7 +192,7 @@ int main(int argc, char **argv)
         FILE *f;
         if ((f = fopen(fullPath, "w")) == NULL)
             printf("Error opening file!\n");
-        if (fwrite(timeDataArray, sizeof(double), NUM_ARRAYS * 2, f) != 2)
+        if (fwrite(timeDataArray, sizeof(double), MAX_ARRAY_SIZE_LEFT_SHIFT +1 * 2, f) != 2)
             printf("Error writing to file!\n");
     }
 
