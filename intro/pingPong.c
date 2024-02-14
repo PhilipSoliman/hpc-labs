@@ -192,7 +192,7 @@ int main(int argc, char **argv)
         FILE *f;
         if ((f = fopen(fullPath, "w")) == NULL)
             printf("Error opening file!\n");
-        if (fwrite(timeDataArray, sizeof(double), MAX_ARRAY_SIZE_LEFT_SHIFT +1 * 2, f) != 2)
+        if (fwrite(timeDataArray, sizeof(double), (MAX_ARRAY_SIZE_LEFT_SHIFT + 1) * 2, f) != 2)
             printf("Error writing to file!\n");
     }
 
