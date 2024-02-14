@@ -6,8 +6,8 @@
 #include "mpifuncs.h"
 
 // Maximum array size 2^20 = 1048576 elements
-#define MAX_ARRAY_SIZE_LEFT_SHIFT 20
-#define MAX_ARRAY_SIZE (1 << MAX_ARRAY_SIZE_LEFT_SHIFT)
+#define NUM_ARRAYS 20
+#define MAX_ARRAY_SIZE 1000000
 #define ASSIGNMENT_FOLDER "/home/psoliman/HPC/hpc-labs/intro/pingPong_times/"
 
 int main(int argc, char **argv)
@@ -20,13 +20,16 @@ int main(int argc, char **argv)
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
+    printf("Rank %2.1i: Hello, world!\n", myRank);
 
-    int *myArray = (int *)malloc(sizeof(int) * MAX_ARRAY_SIZE);
+    // Allocate memory for the array
+    int *myArray = malloc(sizeof(int) * MAX_ARRAY_SIZE);
     if (myArray == NULL)
     {
         printf("Not enough memory\n");
         exit(1);
     }
+    printf("(%i)succesfully allocated memory!\n", myRank);
     // Initialize myArray
     for (i = 0; i < MAX_ARRAY_SIZE; i++)
         myArray[i] = 1;
@@ -37,7 +40,7 @@ int main(int argc, char **argv)
     // PART C
     if (numProcs < 2)
     {
-        printf("Error: Run the program with at least 2 MPI tasks!\n");
+        printf("(%i)Error: Run the program with at least 2 MPI tasks!\n", myRank);
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
 
@@ -45,16 +48,18 @@ int main(int argc, char **argv)
     int numberOfNodes = MPI_getNodeCount();
 
     // initialise arrays to save message length, duration and combined duration
-    int messageLengthArray[MAX_ARRAY_SIZE_LEFT_SHIFT + 1];
-    double timeArray[MAX_ARRAY_SIZE_LEFT_SHIFT + 1];
+    int messageLengthArray[NUM_ARRAYS];
+    double timeArray[NUM_ARRAYS];
+
+    printf("(%i) successfully initialised arrays\n", myRank);
     // double combinedTimeArray[MAX_ARRAY_SIZE_LEFT_SHIFT + 1];
     double startTime, endTime;
 
     // ping pong loop
-    for (j = 0; j <= MAX_ARRAY_SIZE_LEFT_SHIFT; j++)
+    for (j = 0; j < NUM_ARRAYS; j++)
     {
         // message size obtained using left-shift operator. Also save it.
-        numberOfElementsToSend = 1 << j;
+        numberOfElementsToSend = (int)(MAX_ARRAY_SIZE/NUM_ARRAYS) * (j+1);
 
         if (myRank == 0)
         {
@@ -161,14 +166,17 @@ int main(int argc, char **argv)
     //     }
     // }
 
+    // free memory
+    free(myArray);
+
     // Finalize MPI
     MPI_Finalize();
 
     if (myRank == 0)
     {
         // combine message length and duration arrays
-        double timeDataArray[MAX_ARRAY_SIZE_LEFT_SHIFT + 1][2];
-        for (i = 0; i <= MAX_ARRAY_SIZE_LEFT_SHIFT; i++)
+        double timeDataArray[NUM_ARRAYS][2];
+        for (i = 0; i < NUM_ARRAYS; i++)
         {
             timeDataArray[i][0] = messageLengthArray[i];
             timeDataArray[i][1] = timeArray[i];
@@ -181,8 +189,11 @@ int main(int argc, char **argv)
         sprintf(arrayFileName, "pingPong_times_nnodes=%i.dat", numberOfNodes);
         char fullPath[sizeof(ASSIGNMENT_FOLDER) + sizeof(arrayFileName)] = ASSIGNMENT_FOLDER;
         strcat(fullPath, arrayFileName);
-        saveArray(timeDataArray, MAX_ARRAY_SIZE_LEFT_SHIFT + 1, 2, fullPath);
-        printf("Saving done!\n");
+        FILE *f;
+        if ((f = fopen(fullPath, "w")) == NULL)
+            printf("Error opening file!\n");
+        if (fwrite(timeDataArray, sizeof(double), NUM_ARRAYS * 2, f) != 2)
+            printf("Error writing to file!\n");
     }
 
     return 0;
