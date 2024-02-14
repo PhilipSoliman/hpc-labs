@@ -186,7 +186,7 @@ int main(int argc, char **argv)
         // save data to file
         printf("Saving message length and duration data to file...\n");
         char arrayFileName[50];
-        sprintf(arrayFileName, "pingPong_times_nnodes=%i.dat", numberOfNodes);
+        sprintf(arrayFileName, "pingPong_times_nnodes=%i_.dat", numberOfNodes);
         char fullPath[sizeof(ASSIGNMENT_FOLDER) + sizeof(arrayFileName)] = ASSIGNMENT_FOLDER;
         strcat(fullPath, arrayFileName);
         FILE *f;

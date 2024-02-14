@@ -34,7 +34,6 @@ pingPongMeta = []
 for file in pingPongFiles:
     pingPongTimes.append(np.fromfile(file).reshape((21, 2), order="C"))
     pingPongMeta.append(pyutils.get_metadata(file))
-pingPongTimes = np.array(pingPongTimes)
 
 MMTimes = []
 MMMeta = []
@@ -46,15 +45,15 @@ MMTimes = np.array(MMTimes)
 # plot of pingPongTimes
 fig, ax = plt.subplots()
 ax.set_title("Ping Pong Times")
-ax.set_xlabel("Message Size (bytes)")
+ax.set_xlabel("Message Size (MB)")
 ax.set_ylabel("Time (s)")
-ax.set_xscale("log")
+# ax.set_xscale("log")
 # ax.set_yscale("log")
 ax.grid(True)
 
 for i in range(len(pingPongTimes)):
-    x = pingPongTimes[i, 1:, 0]
-    y = pingPongTimes[i, 1:, 1]
+    x = pingPongTimes[i][7:, 0] *1e-6
+    y = pingPongTimes[i][7:, 1]
 
     lines = ax.plot(
         x, y, label=f"#nodes = {pingPongMeta[i]['nnodes']}", marker="x", linestyle=""
@@ -65,12 +64,47 @@ for i in range(len(pingPongTimes)):
     y_fit = np.polyval(p, x)
     ax.plot(x, y_fit, label="fit", linestyle="--", color=lines[0].get_color())
 
+    msg = r"$\alpha$ = " + f"{p[0]:.2e}\n" + r"$\beta$ = " + f"{p[1]*1e6:.2e}"
+    ax.text(x[-2], y[-2], msg, fontsize=13, ha="right")
 
 ax.legend()
 plt.tight_layout()
 filename = f"pingPong_times.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
+
+# plot of pingPongTimes (small message sizes)
+fig, ax = plt.subplots()
+ax.set_title("Ping Pong Times")
+ax.set_xlabel("Message Size (B)")
+ax.set_ylabel("Time (s)")
+# ax.set_xscale("log")
+# ax.set_yscale("log")
+ax.grid(True)
+
+for i in range(len(pingPongTimes)):
+    x = pingPongTimes[i][1:7, 0]
+    y = pingPongTimes[i][1:7, 1]
+
+    lines = ax.plot(
+        x, y, label=f"#nodes = {pingPongMeta[i]['nnodes']}", marker="x", linestyle=""
+    )
+
+    # numpy polyfit
+    p = np.polyfit(x, y, 1)
+    y_fit = np.polyval(p, x)
+    ax.plot(x, y_fit, label="fit", linestyle="--", color=lines[0].get_color())
+
+    msg = r"$\alpha$ = " + f"{p[0]:.2e}\n" + r"$\beta$ = " + f"{p[1]:.2e}"
+    ax.text(x[-2], y[-2], msg, fontsize=13, ha="right")
+
+
+ax.legend()
+plt.tight_layout()
+filename = f"pingPong_times_small.png"
+filepath = root / "report" / "figures" / filename
+fig.savefig(filepath, dpi=300, bbox_inches="tight")
+
 
 # print latex table
 header = [
@@ -116,6 +150,8 @@ filename = "MM_times_table.tex"
 filepath = root / "report" / "tables" / filename
 with open(filepath, "w") as f:
     f.write(table_str)
+
+plt.show()
 
 if args_d.get("output"):
     plt.show()
