@@ -3,25 +3,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pprint import pprint
 from pathlib import Path
-import python_utils.python_utils as pyutils 
+import python_utils as pyutils 
 from tabulate import tabulate
 from texttable import Texttable
 import latextable
 
 
 # get CLI
-args = sys.argv
-if "--show-output=" in args:
-    output = args[args.index("--show-output=") + 1]
-    if output.lower == "True":
-        output = True
-    elif output == "False":
-        output = False
-    else:
-        raise ValueError("No or invalid output flag found")
-elif __name__ == "__main__":
-    output = True
-
+args_d = pyutils.get_cli_args()
+if args_d.get("output"):
+    plt.close("all")
 
 # get root directory
 root = pyutils.get_root()
@@ -77,8 +68,6 @@ for i in range(len(pingPongTimes)):
 
 ax.legend()
 plt.tight_layout()
-if output:
-    plt.show()
 filename = f"pingPong_times.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
@@ -97,23 +86,6 @@ Nsizes, Nprocs, _ = MMTimes_T.shape
 rows = [[]] * (Nsizes * (Nprocs + 1) + 1)
 rows[0] = header
 procs = sorted([int(MMMeta[i]["nproc"]) for i in range(len(MMMeta))])
-
-
-def scientific_fmt(s: float, prec: int = 2) -> str:
-    specifier = f"{{:.{prec}e}}"
-    scientific_str = specifier.format(s)
-    mantissa, exponent = scientific_str.split("e")
-    if exponent[0] == "+":
-        sign = ""
-    elif exponent[0] == "-":
-        sign = "-"
-    if exponent[1] == "0":
-        exponent = exponent[2:]
-    if exponent == "0":
-        out = mantissa
-    else:
-        out = mantissa + r"$\times 10^{" + sign + exponent + "}$"
-    return out
 
 
 for i in range(len(MMTimes_T)):
@@ -144,3 +116,6 @@ filename = "MM_times_table.tex"
 filepath = root / "report" / "tables" / filename
 with open(filepath, "w") as f:
     f.write(table_str)
+
+if args_d.get("output"):
+    plt.show()

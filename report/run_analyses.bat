@@ -1,15 +1,19 @@
 echo off
 @REM Move to project root
 cd %~dp0\..
+
+@REM Make sure python utils is added to search path
+@REM export PYTHONPATH=$PYTHONPATH:${workspaceFolder}/python_utils
+
 @REM Runnning analyses
 echo Intro assignments...
-py "intro\analysis.py" --show-output= False
+cd intro && py analysis.py --show-output= False && cd ..
 echo Assignment 1...
-py "assignment_1\analysis.py" --show-output= False
+cd assignment_1 && py analysis.py --show-output= False && cd ..
 echo Assignment 2...
-py "assignment_2\analysis.py" --show-output= False
+cd assignment_2 && py analysis.py --show-output= False && cd ..
 echo Assignment 3...
-py "assignment_3\analysis.py" --show-output= False
+cd assignment_2 && py analysis.py --show-output= False && cd ..
 echo Done!
 
 @REM @REM Move back to directory to which batch file was called from
