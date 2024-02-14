@@ -163,7 +163,7 @@ total_subplots = 4
 num_cols = 2
 num_rows = total_subplots // num_cols
 fig, axs = plt.subplots(num_rows, num_cols, squeeze=True)
-stride = 5
+stride = 50
 for i, dat in enumerate(data):
     idx = i % 4
     ax = axs[idx // 2][i % 2]
