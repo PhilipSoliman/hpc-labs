@@ -22,8 +22,9 @@ assignment_2/input/grid[0-99]*.dat
 
 # report folder
 report/build
-report/figures
-report/tables
+report/figures/*.png
+report/tables/*.tex
+
 
 #ignore pycache
 **/__pycache__
