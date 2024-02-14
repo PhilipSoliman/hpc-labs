@@ -1,17 +1,59 @@
 \setcounter{section}{-1}
 \section{Intro assignments}
-\subsection{Ping Pong}
 
-% include figure 
-\begin{figure}[h]
+The send and receive loop is implemented 
+\href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/intro/pingPong.c#L59-L121}{here.}
+
+\subsection{Ping Pong}
+Figures \ref{fig:pingpong} and \ref{fig:pingpong_small} show the results of the 
+time measurements for several message sizes. The figures also include estimates for the values of $\alpha$ and $\beta$.
+based on the expected relation between message size and communication time
+\begin{equation}
+    T = \alpha + \beta \cdot \text{size}
+    \label{eq:pingpong}
+\end{equation}
+
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{figures/pingPong_times.png}
-    \caption{Ping pong results, with the time it took to send a message of size $2^i$ bytes.}
+    \includegraphics[width=0.7\textwidth]{figures/pingPong_times.png}
+    \caption{Ping pong results, with the time it took to send a
+             message of size $2^i$ bytes. Additionally, the values of $\alpha$ and $\beta$ are shown.}
     \label{fig:pingpong}
 \end{figure}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{figures/pingPong_times_small.png}
+    \caption{Similar to figure \ref{fig:pingpong}, but for small message sizes.}
+    \label{fig:pingpong_small}
+\end{figure}
 
 \subsection{Matrix multiplication}
+The matrix matrix multiplication $AB = C$ is implemented in several phases:
+\begin{enumerate}
+    \item [0.] Matrices $A$ and $B$ are initialized on every
+    \href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/intro/MM-product.c#L56-L68}{process.}
+    \item [1.] Portion of matrix $A$ to be multiplied with $B$ by each process is 
+    \href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/intro/MM-product.c#L84-L92C7}{determined.}
+    \item [2.] Each process performs the multiplication locally
+    \href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/intro/MM-product.c#L95-L110}{performed.}
+    \item [3.] Finally, the results are
+    \href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/intro/MM-product.c#L95-L142}{gathered.}
+\end{enumerate}
+Phase 1 is implemented by dividing the rows of matrix $A$ into (approximately) equal portions for each process.
+That is to say, each process received $\frac{n}{p}$, where $n$ is the number of rows in $A$ and $p$ is the number of processes.
+This leads to a balanced workload as long as the number of rows is divisible by the number of processes.
+If that is not the case, the last process will receive the remaining rows.Next to the phases above, the sequential calculation is performed only on the root 
+\href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/intro/MM-product.c#L71-L79}{process.}
 
-% include table from file
 \input{tables/MM_times_table.tex}
+The time measurements for the matrix multiplication are shown in table \ref{tab:matrix size}. 
+The general takeaway here is twofold. The time it takes to perform the matrix multiplication:
+\begin{enumerate}
+    \item increases with the size of the matrix;
+    \item decreases almost linearly with the number of processes if the matrix is large enough.
+\end{enumerate}
+The last conclusion is based on the fact that the speedup for matrix size 125 using 64 processors
+is only 40 times faster than the sequential version. While the speedup for a matrix of size 256 is 63 times faster. 
+This reason for this occurence is that the 64 processors are located on two different nodes. 
+This leads to a higher communication overhead, which is more pronounced for smaller matrices.

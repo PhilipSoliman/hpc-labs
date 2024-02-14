@@ -50,11 +50,11 @@ for i, phi in enumerate(phis):
     y = np.linspace(0, 1, n_y)
     X, Y = np.meshgrid(x, y)
     ax.plot_surface(X, Y, phi, cmap="viridis")
-    ax.set_title(f"$\phi$ for {n_x}x{n_y} grid (procg = {phisMeta[i]['procg']})")
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    # ax.set_zlabel("Phi")
-plt.tight_layout()
+    ax.set_title(f"{phisMeta[i]['procg']}")
+    if i == 0:
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_zlabel("$\phi$")
 
 # save plot
 filename = f"poisson_surface.png"
@@ -155,7 +155,7 @@ data = ()
 Niters = 400
 for file in outputFiles:
     meta = pyutils.get_metadata(file)
-    time = np.fromfile(file, dtype=float)[:Niters][::10]
+    time = np.fromfile(file, dtype=float)[:Niters]
     meta["time"] = np.cumsum(time)
     data += (meta,)
 
@@ -167,7 +167,7 @@ stride = 5
 for i, dat in enumerate(data):
     idx = i % 4
     ax = axs[idx // 2][i % 2]
-    time = dat["time"]
+    time = np.sort(dat["time"])
     iters = np.linspace(0, len(time) + 1, len(time))
     if dat["procg"] == "2x2":
         ax.plot(
@@ -179,9 +179,17 @@ for i, dat in enumerate(data):
             linestyle="None",
         )
         ax.set_title(dat["gs"])
-        p = np.polyfit(iters[1:], time[1:], 1)
+        p = np.polyfit(iters, time, 1)
         y_fit = np.polyval(p, iters)
         ax.plot(iters, y_fit, linestyle="--", color="r")
+        ax.text(
+            0.5,
+            0.5,
+            r"$\alpha$" + f": {p[1]:.2e}\n" + r"$\beta$" + f": {p[0]:.2e}",
+            transform=ax.transAxes,
+            va="bottom",
+            ha="right",
+        )
     if dat["procg"] == "4x1":
         ax.plot(
             iters[::stride],
@@ -192,10 +200,18 @@ for i, dat in enumerate(data):
             linestyle="None",
         )
         ax.set_title(dat["gs"])
-        p = np.polyfit(iters[1:], time[1:], 1)
+        p = np.polyfit(iters, time, 1)
         y_fit = np.polyval(p, iters)
         ax.plot(iters, y_fit, linestyle="--", color="b")
-axs[0][0].legend()
+        ax.text(
+            0.5,
+            0.5,
+            r"$\alpha$" + f": {p[1]:.2e}\n" + r"$\beta$" + f": {p[0]:.2e}",
+            transform=ax.transAxes,
+            va="top",
+            ha="left",
+        )
+axs[0][0].legend(loc='upper right', fontsize=10)
 plt.tight_layout()
 
 filename = f"timeviters.png"

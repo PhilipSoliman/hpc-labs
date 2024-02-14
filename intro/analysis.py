@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pprint import pprint
 from pathlib import Path
-import python_utils as pyutils 
+import python_utils as pyutils
 from tabulate import tabulate
 from texttable import Texttable
 import latextable
@@ -52,7 +52,7 @@ ax.set_ylabel("Time (s)")
 ax.grid(True)
 
 for i in range(len(pingPongTimes)):
-    x = pingPongTimes[i][7:, 0] *1e-6
+    x = pingPongTimes[i][7:, 0] * 1e-6
     y = pingPongTimes[i][7:, 1]
 
     lines = ax.plot(
@@ -64,7 +64,7 @@ for i in range(len(pingPongTimes)):
     y_fit = np.polyval(p, x)
     ax.plot(x, y_fit, label="fit", linestyle="--", color=lines[0].get_color())
 
-    msg = r"$\alpha$ = " + f"{p[0]:.2e}\n" + r"$\beta$ = " + f"{p[1]*1e6:.2e}"
+    msg = r"$\alpha$ = " + f"{p[1]:.2e}\n" + r"$\beta$ = " + f"{p[0]*1e6:.2e}"
     ax.text(x[-2], y[-2], msg, fontsize=13, ha="right")
 
 ax.legend()
@@ -95,7 +95,7 @@ for i in range(len(pingPongTimes)):
     y_fit = np.polyval(p, x)
     ax.plot(x, y_fit, label="fit", linestyle="--", color=lines[0].get_color())
 
-    msg = r"$\alpha$ = " + f"{p[0]:.2e}\n" + r"$\beta$ = " + f"{p[1]:.2e}"
+    msg = r"$\alpha$ = " + f"{p[1]:.2e}\n" + r"$\beta$ = " + f"{p[0]:.2e}"
     ax.text(x[-2], y[-2], msg, fontsize=13, ha="right")
 
 
@@ -125,7 +125,7 @@ procs = sorted([int(MMMeta[i]["nproc"]) for i in range(len(MMMeta))])
 for i in range(len(MMTimes_T)):
     measurements = MMTimes_T[i]
     for j, [seq, par, speedup, size] in enumerate(measurements):
-        nnodes, nproc = str(MMMeta[j]["nnodes"]), str(MMMeta[j]["nproc"])
+        nnodes, nproc = MMMeta[j]["nnodes"].split(".")[0], MMMeta[j]["nproc"]
         proc_idx = procs.index(int(nproc)) + 1
         if j == 0:
             size_str = r"\hline" + f"{size:.0f}" + r"$\times$" + f"{size:.0f}"
@@ -150,8 +150,6 @@ filename = "MM_times_table.tex"
 filepath = root / "report" / "tables" / filename
 with open(filepath, "w") as f:
     f.write(table_str)
-
-plt.show()
 
 if args_d.get("output"):
     plt.show()

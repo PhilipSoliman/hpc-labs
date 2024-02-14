@@ -1,12 +1,42 @@
 \section{Parallel Poisson solver}
 
-\subsection{parallellisation of the Poisson solver}
+\subsection{Parallellisation of the Poisson solver}
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{figures/poisson_surface.png}
     \caption{Surface plots of parallel poisson solution various (process) grid shapes.}
     \label{fig:ppoisson_surface}
 \end{figure}
+
+\subsubsection{Steps 1-4}
+Since these mainly deal with setting up MPI and file I/O I leave out discussion thereof, aside from the fact that 
+I checked that all processes produce identical output, before continuing with following steps. 
+
+\subsubsection{Steps 5-10}
+\begin{itemize}
+    \item [\textbf{Step 5:}] altered 
+    \href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/assignment_1/ppoisson2.c#L196-L215}{\lstinline|Setup_Grid()|} 
+    to do read grid specifications and
+    \href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/assignment_1/ppoisson2.c#L255-L281}{sources}
+    from the input file on root process and broadcast to other processes.
+    \item [\textbf{Step 6:}] implemented 
+    \href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/assignment_1/ppoisson2.c#L289}{\lstinline|Setup_Proc_Grid()|}
+    defining the process topology.
+    \item [\textbf{Step 7:}] adjusted 
+    \href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/assignment_1/ppoisson2.c#L218-L229}{\lstinline|Setup_Grid()| }
+    to incorporate grid subdomain offsets and sizes.
+    \item [\textbf{Step 8:}] implemented 
+    \href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/assignment_1/ppoisson2.c#L1063}{\lstinline|Setup_MPI_Datatypes()|}
+    and 
+    \href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/assignment_1/ppoisson2.c#L1137-L1144}{\lstinline|Exchange_Borders()|}
+    for border exchange.
+    \item [\textbf{Step 9:}] implemented 
+    \href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/assignment_1/ppoisson2.c#L637}{local error communication} 
+    through \lstinline{MPI_Allreduce()} for global error and convergence check.
+    \item [\textbf{Step 10:}] altered the
+    \href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/assignment_1/ppoisson2.c#L665}{\lstinline|Write_Grid()|}
+    function to write output into a single (binary) file.
+\end{itemize}
 
 \subsection{Improvements \& performance analysis}
 Variables:
@@ -18,32 +48,48 @@ Variables:
 \end{itemize}
 
 \subsubsection{Algorithmic improvements}
+To implement the SOR I altered the 
+\href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/assignment_1/ppoisson2.c#L576-L590}{\lstinline[language=C]|Dp_Step()|},
+where now the global variable $\omega$ (relaxation parameter) is introduced.
 
 \subsubsection{optimal value for $\omega$}
+Figures \ref{fig:optimal_omega_22} and \ref{fig:optimal_omega_41} show performance of the parallel poisson solver for 
+various $\omega$, grid sizes and process topologies. 
+The optimal value for $\omega$ is found to be $\omega\approx1.91$ for all cases.
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{figures/optimal_omega_22.png}
-    \caption{Surface plot of number of iterations depending on omega and grid size for a $2\times2$ process grid.}
+    \includegraphics[width=0.8\textwidth]{figures/optimal_omega_41.png}
+    \caption{Surface plot of number of iterations (left) and runtime (right) depending on omega and grid size for a $4\times1$ process grid.}
     \label{fig:optimal_omega_22}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{figures/optimal_omega_41.png}
-    \caption{Surface plot of number of iterations depending on omega and grid size for a $4\times1$ process grid.}
+    \includegraphics[width=0.8\textwidth]{figures/optimal_omega_22.png}
+    \caption{Similar to figure \ref{fig:optimal_omega_22} but for a $2\times2$ process grid.}
     \label{fig:optimal_omega_41}
 \end{figure}
 
 \subsubsection{time versus iterations}
+Figure \ref{fig:timeviters} shows the elapsed versus iteration number for different grid sizes and process topologies.
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{figures/timeviters.png}
-    \caption{Time versus iterations for different grid sizes and process topologies.}
+    \caption{Time versus iterations for different grid sizes and process topologies. 
+    Estimated values for $\alpha$ and $\beta$ are shown as well.}
     \label{fig:timeviters}
 \end{figure}
+Note that some values of $\alpha$ turn out to be negative, which is not possible.
+This is a result of the linear regression model not being constrained to give zero or positive values for $\alpha$.
+More interesting are the values for $\beta$, which increase for larger grid sizes. Additionally, the
+values for $\beta$ are smaller for the $4\times1$ process grid, which is expected since the communication overhead is smaller.
+This is because the number of border exchanges is smaller for the $4\times1$ process grid.
 
 \subsubsection{domain partitioning}
-\todo{write about favourable domain partitioning}
+From the discussion above it is clear that in choosing between a $2\times2$ and $4\times1$ process grid, the $4\times1$ process grid is the better choice.
+This means that for 16 processors the $16\times1$ or $1\times16$ process grids are the better choice as well, 
+as these minimize the number of border exchanges. In these cases the value of $\beta$ is expected to be twice as big and $\alpha$ to be approximately the same
+as in the $4\times1$ case.
 
 \subsubsection{iterations versus problem size}
 see figures \ref{fig:optimal_omega_22} and \ref{fig:optimal_omega_41}.
