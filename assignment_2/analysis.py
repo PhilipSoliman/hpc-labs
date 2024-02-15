@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 from pprint import pprint
-import python_utils as pyutils
+import python_utils.python_utils as pyutils
 from matplotlib import cm
 
 # get CLI
@@ -236,7 +236,6 @@ axs[0].plot(x, np.ones(len(x)), "--r")
 axs[1].plot(x, np.ones(len(x)), "--r")
 axs[0].set_xlabel("number of processes")
 axs[0].set_ylabel("Overlap")
-axs[0].legend()
 
 plt.tight_layout()
 

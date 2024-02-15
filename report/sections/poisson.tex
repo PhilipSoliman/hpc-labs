@@ -32,7 +32,7 @@ I checked that all processes produce identical output, before continuing with fo
     for border exchange.
     \item [\textbf{Step 9:}] implemented 
     \href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/assignment_1/ppoisson2.c#L637}{local error communication} 
-    through \lstinline{MPI_Allreduce()} for global error and convergence check.
+    through \lstinline[language=C]{MPI_Allreduce()} for global error and convergence check.
     \item [\textbf{Step 10:}] altered the
     \href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/assignment_1/ppoisson2.c#L665}{\lstinline|Write_Grid()|}
     function to write output into a single (binary) file.
@@ -42,20 +42,27 @@ I checked that all processes produce identical output, before continuing with fo
 Variables:
 \begin{itemize}
     \item $\mathrm{n}$ : the number of iterations
-    \item g: gridsize
+    \item $p$: number of processes
+    \item $g$: gridsize
+    \item $h$ = 1/(g+1) : grid spacing
     \item $\mathrm{t}$ : time needed in seconds
     \item pt: processor topology in form pxy, where p: number of processors used $\mathrm{x}$ : number of processors in $\mathrm{x}$ - direction $y$ : number of processors in y-direction
 \end{itemize}
 
 \subsubsection{Algorithmic improvements}
 To implement the SOR I altered the 
-\href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/assignment_1/ppoisson2.c#L576-L590}{\lstinline[language=C]|Dp_Step()|},
+\href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/assignment_1/ppoisson2.c#L576-L590}{\lstinline[language=C]|Do_Step()|},
 where now the global variable $\omega$ (relaxation parameter) is introduced.
 
 \subsubsection{optimal value for $\omega$}
 Figures \ref{fig:optimal_omega_22} and \ref{fig:optimal_omega_41} show performance of the parallel poisson solver for 
 various $\omega$, grid sizes and process topologies. 
-The optimal value for $\omega$ is found to be $\omega\approx1.91$ for all cases.
+The optimal value for $\omega$ is found to be $\omega\approx1.99$ for all cases. This is in keeping with the theoretical 
+value of for the 2D Poisson equation \cite{Yang2009}
+\[
+    \omega = \frac{2}{1+\sin(\pi h)},
+\]
+which approaches 2 for small $h$.
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{figures/optimal_omega_41.png}
@@ -88,16 +95,25 @@ This is because the number of border exchanges is smaller for the $4\times1$ pro
 \subsubsection{domain partitioning}
 From the discussion above it is clear that in choosing between a $2\times2$ and $4\times1$ process grid, the $4\times1$ process grid is the better choice.
 This means that for 16 processors the $16\times1$ or $1\times16$ process grids are the better choice as well, 
-as these minimize the number of border exchanges. In these cases the value of $\beta$ is expected to be twice as big and $\alpha$ to be approximately the same
-as in the $4\times1$ case.
+as these minimize the number of border exchanges. 
+In these cases the value of $\alpha$ is expectd to be four times as big, since the amount of messages quadruples.
+As for the value of $\beta$, this is expected to be fou times as big, since the amount of communicated data quadruples as well.
 
 \subsubsection{iterations versus problem size}
-see figures \ref{fig:optimal_omega_22} and \ref{fig:optimal_omega_41}.
+See, again, figures \ref{fig:optimal_omega_22} and \ref{fig:optimal_omega_41}. Figure \ref{fig:iterations_vs_problem_size} shows the number of 
+iterations versus grid size for the optimal $\omega=1.99$. We see that for larger grid sizes the number of iterations increases linearly.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.7\textwidth]{figures/ppoison_iterations_vs_gridsize_w=1.99.png}
+    \caption{Iterations versus grid size for $\omega=1.99$.}
+    \label{fig:iterations_vs_problem_size}
+\end{figure}
 
 \subsubsection{error of 800$\times$800 grid}
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{figures/error_800x800.png}
+    \includegraphics[width=0.7\textwidth]{figures/error_800x800.png}
     \caption{Error evolution versus iteration.}
     \label{fig:error_800}
 \end{figure}
@@ -106,17 +122,37 @@ see figures \ref{fig:optimal_omega_22} and \ref{fig:optimal_omega_41}.
 \todo{implement sweeps over allreduce and compare to standard implementation.}
 
 \subsubsection{Border communication reduction}
+To reduce communication I altered the 
+\href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/assignment_1/ppoisson2.c#L1083}{\lstinline[language=C]{Exchange_Borders()}} 
+function to only perform communication for iterations that are multiples of the number of sweeps.
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{figures/sweep_analysis.png}
-    \caption{Iterations versus number of sweeps (right) and time versus number of sweeps (left).}
+    \caption{Time versus number of sweeps (left) and iterations versus number of sweeps (middle) and total runtime (right).}
     \label{fig:sweep_analysis}
 \end{figure}
+Figure \ref{fig:sweep_analysis} shows that the number of sweeps has a significant impact on the number of iterations. 
+For a small sweep size the number of iterations and runtime increase, but the time per iteration sharply decreases. 
+This is because by increasing the sweep size from 1 to 2, the number of border exchanges is halved. Then from 
+2 to 3 the number of border exchanges is halved again and so on. 
+
+For slightly larger sweep sizes the number of iterations increases, while the time per iteration stays approximately constant.
+This results in an overall increase in runtime. 
+
+Finally, for larger sweep sizes the number of iterations and runtime decrease again. This is because the communication between 
+the processes is reduced to such an extent that they essentielly become independent. The solver still converges, because
+the stopping criterion is simply the residual between subsequent runs. This gives the illusion of better performance, but
+in reality the solver is not converging to a global solution. Instead, the solution is converging to a local solution on each 
+process.
+
+All in all, sweeps do not seem to be a good way to reduce communication while maintaining correctness.
 
 \subsubsection{time spent in border exchange (optional)} 
 \todo{perform latency analysis for uniform (proces) grids sizes}
 
 \subsubsection{latency in test problem}
+Timing of the communication overhead is implemented in the 
+\href{https://github.com/PhilipSoliman/hpc-labs/blob/b16da8d7ee717657e13c316369fa0996da7816cc/assignment_1/ppoisson2.c#L1088-L1134}{\lstinline[language=C]{Exchange_Borders()}} function
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{figures/latency_analysis.png}
@@ -124,4 +160,23 @@ see figures \ref{fig:optimal_omega_22} and \ref{fig:optimal_omega_41}.
     \label{fig:latency_analysis}
 \end{figure}
 
-\subsubsection{On Optimization of border exchange} 
+\subsubsection{On optimization of border exchange}
+\begin{itemize}
+    \item The adress of the first point to exchange depends on:
+    \setlength{\itemindent}{1em}
+        \item the phase, because it is either (red- or black-sweep).
+        \item the color of the gridpoint (red or black)
+    \setlength{\itemindent}{0em}
+    \item The number of points to exchange depends on:
+    \setlength{\itemindent}{1em}
+        \item the phase, as we one needs to group these points in a single message,
+        \item the size of the subdomain (even or odd).
+    \setlength{\itemindent}{0em}
+    \item The number of points in between to be exchanged points depends on:
+    \setlength{\itemindent}{1em}
+        \item the phase, as we one needs to group these points in a single message,
+        \item the size of the subdomain (even or odd).
+\end{itemize}
+It ultimately depends on the amount of time spent on extra operations compared to the communcition time saved whether or not this optimization is worth it.
+For relatively large $\frac{g}{p}$ the time spent on communication is not significant, so the optimization is not worth it.
+However, for relatively small $\frac{g}{p}$ such an optimization might be worth it.

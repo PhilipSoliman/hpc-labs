@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 from pprint import pprint
-import python_utils as pyutils
+import python_utils.python_utils as pyutils
 
 # get CLI
 args_d = pyutils.get_cli_args()
@@ -66,9 +66,9 @@ timeFolder = root / "assignment_1" / "ppoisson_times"
 assert timeFolder.exists()
 
 timeFiles = sorted(list(timeFolder.glob("*.dat")))
-Omegas_22 = np.linspace(1.90, 1.99, 10)
+Omegas_22 = np.flip(np.linspace(1.90, 1.99, 10))
 Grids_22 = np.flip(np.linspace(100, 1000, 10))
-W_G, G_W = np.meshgrid(Grids_22, Omegas_22)
+G_W, W_G = np.meshgrid(Grids_22, Omegas_22)
 number_of_proc = 4
 number_of_omegas = 10
 iters = []
@@ -92,20 +92,17 @@ fig = plt.figure()
 ax = fig.add_subplot(121, projection="3d")
 ax.plot_surface(G_W, W_G, np.array(iters), cmap="viridis")
 ax.set_title(f"iterations")
-ax.set_xlabel("$\omega$")
-ax.set_ylabel("gridsize")
+ax.set_xlabel("gridsize")
+ax.set_ylabel("$\omega$")
 
 ax = fig.add_subplot(122, projection="3d")
 ax.plot_surface(G_W, W_G, np.array(times), cmap="viridis")
 ax.set_title(f"times")
 
-plt.tight_layout()
-
 # save plot
 filename = f"optimal_omega_22.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
-
 
 # optimal omega (4x1)
 iters = []
@@ -129,20 +126,55 @@ fig = plt.figure()
 ax = fig.add_subplot(121, projection="3d")
 ax.plot_surface(G_W, W_G, np.array(iters), cmap="viridis")
 ax.set_title(f"iterations")
-ax.set_xlabel("$\omega$")
-ax.set_ylabel("gridsize")
+ax.set_xlabel("gridsize")
+ax.set_ylabel("$\omega$")
 
 ax = fig.add_subplot(122, projection="3d")
 ax.plot_surface(G_W, W_G, np.array(times), cmap="viridis")
 ax.set_title(f"times")
 
-
-plt.tight_layout()
-
 # save plot
 filename = f"optimal_omega_41.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
+
+# iterations vs grid size (for certain omega)
+iters = {}	
+grids = {}
+optimal_omega = 1.99
+optimal_omega_idxs = []
+for i, file in enumerate(timeFiles):
+    meta = pyutils.get_metadata(file)
+    if meta["type"] == "omegas":
+        omegas = np.fromfile(file, dtype=float)
+        optimal_omega_idxs.append(np.argmin(np.abs(omegas - optimal_omega)))
+
+k = 0
+for i, file in enumerate(timeFiles):
+    meta = pyutils.get_metadata(file)
+    if meta["type"] == "iters":
+        if iters.get(meta["procg"]) is None:
+            iters[meta["procg"]] = []
+            grids[meta["procg"]] = []
+        iters[meta["procg"]].append(np.fromfile(file, dtype=int)[optimal_omega_idxs[k]])
+        grids[meta["procg"]].append(int(meta["gs"].split("x")[0]))
+        k += 1
+    
+import itertools
+marker = itertools.cycle(('+', '.', 'o', '*')) 
+fig, ax = plt.subplots(figsize=(8, 6))
+for pgrid, iter in iters.items():
+    ax.plot(grids[pgrid], iter, label=pgrid, linestyle="None", marker=next(marker), markersize=10)
+ax.set_xlabel("Grid size")
+ax.set_ylabel("Iterations")
+ax.set_title(f"$\omega = {optimal_omega}$")
+ax.legend()
+plt.tight_layout()
+
+filename = f"ppoison_iterations_vs_gridsize_w={optimal_omega}.png"
+filepath = root / "report" / "figures" / filename
+fig.savefig(filepath, dpi=300, bbox_inches="tight")
+
 
 # time vs iters
 timeFolder = root / "assignment_1" / "timeviters"
@@ -232,7 +264,7 @@ for file in outputFiles:
         meta["error"] = np.fromfile(file, dtype=float)[Niters:]
         data.append(meta)
 
-fig = plt.figure()
+fig = plt.figure(figsize=(8, 6))
 ax = fig.add_subplot(111)
 for i, dat in enumerate(data):
     error = dat["error"][1:]
@@ -264,16 +296,21 @@ for i, file in enumerate(outputFiles):
     if meta["type"] == "sweeps":
         sweepData[idx]["sweeps"] = np.fromfile(file, dtype=int)
 
-fig, axs = plt.subplots(1, 2, squeeze=True)
+fig, axs = plt.subplots(1, 3, squeeze=True, figsize=(12, 4))
 for i, dat in sweepData.items():
     ax = axs[0]
     ax.plot(dat["sweeps"], dat["iters"], label=dat["meta"]["procg"])
-    ax.set_title("Iterations")
-    ax.set_xlabel("Sweeps")
+    ax.set_ylabel("iterations")
+    ax.set_xlabel("sweep size")
     ax = axs[1]
-    ax.plot(dat["sweeps"], dat["times"] / dat["iters"], label=dat["meta"]["procg"])
-    ax.set_title("time/iteration")
+    ax.plot(dat["sweeps"], dat["times"] / dat["iters"])
+    ax.set_ylabel("time per iteration")
+    ax = axs[2]
+    ax.plot(dat["sweeps"], dat["times"])
+    ax.set_ylabel("runtime")
 
+plt.tight_layout()
+axs[0].legend()
 filename = f"sweep_analysis.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
