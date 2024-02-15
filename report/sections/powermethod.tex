@@ -1,11 +1,46 @@
 \section{Power method on the GPU}
-\todo{Talk about implementatiof of global memory methods}
+Next to the provided implementations of the GPU util functions using shared memoty I implemented 
+global memory versions of these same functions
+\begin{itemize}
+    \item 
+        \href{https://github.com/PhilipSoliman/hpc-labs/blob/eaa6eae4b21eae73d1903c3859017a9312980d10/assignment_3/powermethod.cu#L634C17-L648}
+        {\lstinline[language=C]{Av_Product_Global()}}
+    \item 
+        \href{https://github.com/PhilipSoliman/hpc-labs/blob/eaa6eae4b21eae73d1903c3859017a9312980d10/assignment_3/powermethod.cu#L650-L664}
+        {\lstinline[language=C]{FindNormW_Global()}}
+    \item 
+        \href{https://github.com/PhilipSoliman/hpc-labs/blob/eaa6eae4b21eae73d1903c3859017a9312980d10/assignment_3/powermethod.cu#L666-L675}
+        {\lstinline[language=C]{NormalizeW_Global()}}
+    \item 
+        \href{https://github.com/PhilipSoliman/hpc-labs/blob/eaa6eae4b21eae73d1903c3859017a9312980d10/assignment_3/powermethod.cu#L677-L690}
+        {\lstinline[language=C]{ComputeLamda_Global()}}
+\end{itemize}
+I then wrapped these functions in a more general GPU power method function 
+\href{https://github.com/PhilipSoliman/hpc-labs/blob/eaa6eae4b21eae73d1903c3859017a9312980d10/assignment_3/powermethod.cu#L121C6-L121C23}
+{RunGPUPowerMethod}, which allows to dynamically choose between the global and shared memory versions of the util functions. 
+It also performs all necessary time measurements.
 
 \subsection{Performance analysis} 
+All time results below are averaged over 5 runs. In case of two entries, the left one
+is the global memory version and the right one is the shared memory version.
 \input{tables/power_method_exectimes.tex}
 
 \input{tables/power_method_speedup_no_mem.tex}
 
 \input{tables/power_method_speedup_with_mem.tex}
 
-\subsection{Explanaition of the results}
+\subsection{Explaination of the results}
+Tables \ref{tab:power_method_exectimes}, \ref{tab:power_method_speedup_no_mem} show that as long as
+the number of threads per block does is not too large, the shared memory version is faster than the global memory version,
+even with memory transfers included (Table \ref{tab:power_method_speedup_with_mem}). This is because as stated in the 
+assignment description, shared memory is much faster than global memory. 
+
+However, as the number of threads per block increases, more and more memory is stored on-chip (L1 cache) of any SM. 
+At 100 threads per block the shared memory requirement becomes $100^2 \times 8 = 80$ kB. Shared memory is limited to 
+\href{https://www.techpowerup.com/gpu-specs/tesla-t4.c3316}{64 kB per SM} on Nvidea's T4 architecture. Hence, it is not 
+possible to run the shared memory version with 100 threads per block. This is why these time measurements are not included 
+in the tables above.
+
+Furthermore, we recognise the principle that was discussed in the lectures as well; the task needs to be 
+computationally intensive enough for the GPU to be faster than the CPU. That is to say, for small matrices
+there is no speedup, slow down even, of the GPU variant of the power method.
