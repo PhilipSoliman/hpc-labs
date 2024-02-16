@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 from pprint import pprint
-import python_utils.python_utils as pyutils
+import python_utils as pyutils
 
 # get CLI
 args_d = pyutils.get_cli_args()
@@ -37,6 +37,7 @@ for file in outputFiles:
     phis.append(np.fromfile(file).reshape((n_x, n_y), order="C"))
 
 # plot 3D surface
+print("\tMaking surface plot of ppoisson solution...", end="")
 fig = plt.figure()
 total_subplots = len(phis)
 num_cols = 2
@@ -60,11 +61,13 @@ for i, phi in enumerate(phis):
 filename = f"poisson_surface.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
+print("Done!")
 
 # optimal omega and (2x2)
 timeFolder = root / "assignment_1" / "ppoisson_times"
 assert timeFolder.exists()
 
+print("\tSurface plot of grid sizes vs times (2x2 procg)...", end="")
 timeFiles = sorted(list(timeFolder.glob("*.dat")))
 Omegas_22 = np.flip(np.linspace(1.90, 1.99, 10))
 Grids_22 = np.flip(np.linspace(100, 1000, 10))
@@ -103,8 +106,10 @@ ax.set_title(f"times")
 filename = f"optimal_omega_22.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
+print("Done!")
 
 # optimal omega (4x1)
+print("\tSurface plot of grid sizes vs times (4x1 procg)...", end="")
 iters = []
 times = []
 cpu_util = []
@@ -137,9 +142,10 @@ ax.set_title(f"times")
 filename = f"optimal_omega_41.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
+print("Done!")
 
 # iterations vs grid size (for certain omega)
-iters = {}	
+iters = {}
 grids = {}
 optimal_omega = 1.99
 optimal_omega_idxs = []
@@ -159,12 +165,21 @@ for i, file in enumerate(timeFiles):
         iters[meta["procg"]].append(np.fromfile(file, dtype=int)[optimal_omega_idxs[k]])
         grids[meta["procg"]].append(int(meta["gs"].split("x")[0]))
         k += 1
-    
+
 import itertools
-marker = itertools.cycle(('+', '.', 'o', '*')) 
+
+print("\tPlotting iterations vs grid size for optimal $\omega$...", end="")
+marker = itertools.cycle(("+", ".", "o", "*"))
 fig, ax = plt.subplots(figsize=(8, 6))
 for pgrid, iter in iters.items():
-    ax.plot(grids[pgrid], iter, label=pgrid, linestyle="None", marker=next(marker), markersize=10)
+    ax.plot(
+        grids[pgrid],
+        iter,
+        label=pgrid,
+        linestyle="None",
+        marker=next(marker),
+        markersize=10,
+    )
 ax.set_xlabel("Grid size")
 ax.set_ylabel("Iterations")
 ax.set_title(f"$\omega = {optimal_omega}$")
@@ -174,7 +189,7 @@ plt.tight_layout()
 filename = f"ppoison_iterations_vs_gridsize_w={optimal_omega}.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
-
+print("Done!")
 
 # time vs iters
 timeFolder = root / "assignment_1" / "timeviters"
@@ -191,6 +206,7 @@ for file in outputFiles:
     meta["time"] = np.cumsum(time)
     data += (meta,)
 
+print("\tPlotting time vs iters...", end="")
 total_subplots = 4
 num_cols = 2
 num_rows = total_subplots // num_cols
@@ -243,18 +259,20 @@ for i, dat in enumerate(data):
             va="top",
             ha="left",
         )
-axs[0][0].legend(loc='upper right', fontsize=10)
+axs[0][0].legend(loc="upper right", fontsize=10)
 plt.tight_layout()
 
 filename = f"timeviters.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
+print("Done!")
 
 # error plot of 800x800
 plt.close("all")
 errorFolder = root / "assignment_1" / "error_analysis"
 assert errorFolder.exists()
 
+print("\tPlotting residual error for 800x800 grid...", end="")
 outputFiles = sorted(list(timeFolder.glob("*.dat")))
 data = []
 Niters = 4300
@@ -275,6 +293,7 @@ plt.tight_layout()
 filename = f"error_800x800.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
+print("Done!")
 
 # sweep analysis
 sweepFolder = root / "assignment_1" / "sweep_analysis"
@@ -296,6 +315,7 @@ for i, file in enumerate(outputFiles):
     if meta["type"] == "sweeps":
         sweepData[idx]["sweeps"] = np.fromfile(file, dtype=int)
 
+print("\tPlotting sweep analysis...", end="")
 fig, axs = plt.subplots(1, 3, squeeze=True, figsize=(12, 4))
 for i, dat in sweepData.items():
     ax = axs[0]
@@ -314,6 +334,7 @@ axs[0].legend()
 filename = f"sweep_analysis.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
+print("Done!")
 
 # latency analysis
 latencyFolder = root / "assignment_1" / "latency_analysis"
@@ -342,6 +363,7 @@ for i, file in enumerate(outputFiles):
     latencyData[i]["bytes"] = bytes_avg
 
 # plot moving avarage bandwidth for several grid sizes
+print("\tPlotting latency analysis...", end="")
 gridsizes = ["100x100", "200x200", "400x400", "800x800"]
 fig, axs = plt.subplots(2, 2, squeeze=True, sharey=True)
 number_of_pgrids = len(pgrids)
@@ -371,6 +393,7 @@ plt.tight_layout()
 filename = f"latency_analysis.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
+print("Done!")
 
 # clear plots if necessary
 if args_d.get("output"):

@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 from pprint import pprint
-import python_utils.python_utils as pyutils
+import python_utils as pyutils
 from matplotlib import cm
 
 # get CLI
@@ -34,6 +34,7 @@ for i, file in enumerate(outputFiles):
     )
 
 # 3d surface plot
+print("\tPlotting FEM poisson solution...", end="")
 fig = plt.figure()
 for i, data in outputData.items():
     grid = data["meta"]["grid"]
@@ -66,7 +67,7 @@ plt.tight_layout()
 filename = f"fempoisson_surface.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=500, pad_inches=0.5, bbox_inches="tight")
-
+print("Done!")
 
 # benchmark folder
 benchmarkFolder = root / "assignment_2" / "benchmark"
@@ -88,6 +89,7 @@ for i, file in enumerate(benchmarkFiles):
         benchmarkData[i]["error"] = np.fromfile(file, dtype=float)
 
 # stack bar plot for benchmark times
+print("\tPlotting FEM poisson benchmark...", end="")
 grids = ["100x100", "200x200", "400x400"]
 fig, axs = plt.subplots(nrows=3, ncols=2, figsize=(10, 15), sharex=True)
 width = 0.5
@@ -131,6 +133,7 @@ plt.tight_layout()
 filename = f"fempoisson_benchmark.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, pad_inches=0.5, bbox_inches="tight")
+print("Done!")
 
 # computation and communication overlap estimate (fixed number of processors)
 grids = {0: {}, 1: {}}
@@ -156,6 +159,7 @@ for i, data in benchmarkData.items():
         else:
             overlaps[adapt][procg].append(overlap)
 
+print("\tPlotting FEM poisson comp./comm. overlap vs grid size (fixed #proc.)...", end="")
 fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(10, 5), sharex=True, sharey=True)
 for adapt, data in grids.items():
     for procg, grid in data.items():
@@ -191,6 +195,7 @@ plt.tight_layout()
 filename = f"fempoisson_overlap_vs_gridsize.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, pad_inches=0.5, bbox_inches="tight")
+print("Done!")
 
 # communication overlap estimate (fixed grid size)
 pgrids = {0: [], 1: []}
@@ -211,7 +216,7 @@ for i, data in benchmarkData.items():
         overlap = np.sum(computation) / np.sum(communication)  # sum over all processors
         overlaps[adapt].append(overlap)
 
-
+print("\tPlotting FEM poisson comp./comm. overlap vs #proc. (fixed grid size)...", end="")
 fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(10, 5), sharex=True, sharey=True)
 for adapt, pgrid in pgrids.items():
     ax = axs[adapt]
@@ -243,6 +248,7 @@ plt.tight_layout()
 filename = f"fempoisson_overlap_vs_processes.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, pad_inches=0.5, bbox_inches="tight")
+print("Done!")
 
 # error evolution plot
 grids = ["100x100", "200x200", "400x400"]
@@ -250,6 +256,7 @@ pgrids = ["2x2", "4x1"]
 adapt_times = np.zeros((len(grids), len(pgrids)))
 nadapt_times = np.zeros((len(grids), len(pgrids)))
 total_times = np.zeros((len(grids), len(pgrids)))
+print("\tPlotting adapative grid refinement performance...", end="")
 fig, axs = plt.subplots(
     nrows=len(grids), ncols=len(pgrids), figsize=(10, 15), sharey=True
 )
@@ -303,13 +310,12 @@ for i in range(len(grids)):
             loc="right",
             fontsize=14,
         )
-pprint(adapt_times)
-pprint(nadapt_times)
 
 # save plot
 filename = f"fempoisson_error_evolution.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, pad_inches=0.5, bbox_inches="tight")
+print("Done!")
 
 plt.tight_layout()
 if args_d.get("output"):

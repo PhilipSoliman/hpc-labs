@@ -20,7 +20,6 @@ pingPongFolder = root / "intro" / "pingPong_times"
 MMFolder = root / "intro" / "MM_times"
 
 # check folder existence
-print(pingPongFolder)
 assert pingPongFolder.exists()
 assert MMFolder.exists()
 
@@ -51,6 +50,7 @@ ax.set_ylabel("Time (s)")
 # ax.set_yscale("log")
 ax.grid(True)
 
+print("\tMaking plot of ping pong times...", end="")
 for i in range(len(pingPongTimes)):
     x = pingPongTimes[i][7:, 0] * 1e-6
     y = pingPongTimes[i][7:, 1]
@@ -69,11 +69,14 @@ for i in range(len(pingPongTimes)):
 
 ax.legend()
 plt.tight_layout()
+
 filename = f"pingPong_times.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
+print("Done!")
 
 # plot of pingPongTimes (small message sizes)
+print("\tMaking plot of ping pong times (small message sizes)...", end="")
 fig, ax = plt.subplots()
 ax.set_title("Ping Pong Times")
 ax.set_xlabel("Message Size (B)")
@@ -104,9 +107,10 @@ plt.tight_layout()
 filename = f"pingPong_times_small.png"
 filepath = root / "report" / "figures" / filename
 fig.savefig(filepath, dpi=300, bbox_inches="tight")
-
+print("Done!")
 
 # print latex table
+print("\tMaking table of matrix-matrix multiplication times...", end="")
 header = [
     "matrix size",
     "processes",
@@ -150,6 +154,7 @@ filename = "MM_times_table.tex"
 filepath = root / "report" / "tables" / filename
 with open(filepath, "w") as f:
     f.write(table_str)
+print("Done!")
 
 if args_d.get("output"):
     plt.show()

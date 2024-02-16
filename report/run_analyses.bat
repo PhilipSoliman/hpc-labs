@@ -1,19 +1,19 @@
 echo off
-@REM Move to project root
-cd %~dp0\..
-
+set root=%~dp0\..
+set pyexe=%root%\.venv\Scripts\python.exe
 @REM Make sure python utils is added to search path
-@REM export PYTHONPATH=$PYTHONPATH:${workspaceFolder}/python_utils
+@REM set PYTHONPATH=%PYTHONPATH%;%root%\python_utils
 
-@REM Runnning analyses
+echo Runnning analyses
+cd %root%
 echo Intro assignments...
-cd intro && py analysis.py --show-output= False && cd ..
+cd intro && "%pyexe%" analysis.py --show-output= False & cd ..
 echo Assignment 1...
-cd assignment_1 && py analysis.py --show-output= False && cd ..
+cd assignment_1 && "%pyexe%" analysis.py --show-output= False & cd ..
 echo Assignment 2...
-cd assignment_2 && py analysis.py --show-output= False && cd ..
+cd assignment_2 && "%pyexe%" analysis.py --show-output= False & cd ..
 echo Assignment 3...
-cd assignment_2 && py analysis.py --show-output= False && cd ..
+cd assignment_2 && "%pyexe%" analysis.py --show-output= False & cd ..
 echo Done!
 
 @REM @REM Move back to directory to which batch file was called from

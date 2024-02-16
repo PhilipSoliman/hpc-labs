@@ -54,6 +54,7 @@ for i, file in enumerate(benchmarkFiles):
         benchmarkData[i]["gpu_s_mem_size"] = gpu_s_mem_size
 
 # table of execution times
+print("\tMaking table of execution times...", end="")
 header = [
     "matrix size",
     "cpu time",
@@ -104,8 +105,10 @@ filename = "power_method_exectimes.tex"
 filepath = root / "report" / "tables" / filename
 with open(filepath, "w") as f:
     f.write(table_str)
+print("Done!")
 
 # table of speedups without memory transfer
+print("\tMaking table of speedups (without mem. transfer)...", end="")
 header = [
     "matrix size",
     "32 threads",
@@ -151,8 +154,10 @@ filename = "power_method_speedup_no_mem.tex"
 filepath = root / "report" / "tables" / filename
 with open(filepath, "w") as f:
     f.write(table_str)
+print("Done!")
 
 # table of speedups with memory transfer
+print("\tMaking table of speedups (with mem. transfer)...", end="")
 caption = "speedups with memory transfer."
 thread_idx = 0
 rows = [[0] * len(header) for _ in range(len(sizes) + 1)]
@@ -192,3 +197,4 @@ filename = "power_method_speedup_with_mem.tex"
 filepath = root / "report" / "tables" / filename
 with open(filepath, "w") as f:
     f.write(table_str)
+print("Done!")

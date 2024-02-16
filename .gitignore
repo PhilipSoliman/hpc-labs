@@ -21,7 +21,20 @@ assignment_2/input/grid[0-99]*.dat
 .vscode
 
 # report folder
-report/build
+report/build/main
+report/build/*.aux
+report/build/*.log
+report/build/*.out
+report/build/*.toc
+report/build/*.bbl
+report/build/*.bcf
+report/build/*.blg
+report/build/*.fdb_latexmk
+report/build/*.fls
+report/build/*.synctex.gz
+report/build/*.run.xml
+
+
 report/figures/*.png
 report/tables/*.tex
 

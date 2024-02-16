@@ -3,21 +3,7 @@ This repo
 - contains all code of hpc lab assignments + my answers;
 - Additionally it processes output data from HPC labs
 using Python's visualisation libraries; and
-- contains my report.
-
-The rest of this README is the original README of the HPC labs.
-
-# Assignment HPC
-
-This file contains a bunch of helper commands and links that you can find useful during your development on DelftBlue.
-
-Please unzip the assignments folder and then add `<assignment_x>` folder from `HPC/<assignment_x>` in the `HPC` folder of your delftBlue. The assignments folders can be downloaded from BrightSpace.
-
-Each assignment folders contains .sh file, this are files that contains slurm directive and tell DelftBlue how to compile and run your code. You can submit a job to the cluster by doing `sbatch ./HPC/<assigment_folder>/<program_name>.sh`
-
-To change the directive for slurm, you need to modify the `<program_name>.sh` files. 
-For example to run the code on 4 nodes `SBATCH --ntasks=4`.
-Please look at [slurm directive docs](https://slurm.schedmd.com/sbatch.html) for a details list of all options and their corresponding syntax
+- contains my [report](report/build/main.pdf).
 
 # Python analyses 
 Each assignment directory has its own analysis.py file:
@@ -26,7 +12,13 @@ Each assignment directory has its own analysis.py file:
 - [assignment 2](assignment_2/analysis.py);
 - [assignment 3](assignment_3/analysis.py).
 
-These scripts contains the code to process the output data from the HPC labs using Python's visualisation libraries. In each of these scripts some custom modules are used, which are located in the [python_utils][python_utils] directory. For python to be able to import these modules, the [python_utils][python_utils] directory should be added to the PYTHONPATH environment variable. This can be done on VSCode by adding the following line to the `.vscode/settings.json` file in the workspace directory:
+These scripts contain the code to process the output data from the HPC labs using Python's visualisation libraries. In each of these scripts some custom modules are used, which are contained in [python_utils](python_utils/python_utils.py). For python to be able to import these modules, the [python_utils](python_utils) directory should be added to the PYTHONPATH environment variable. The best (but also hacky) way of doing this is by adding the following oneliner
+```python
+from os import getcwd; from pathlib import Path; root = Path(getcwd()).resolve().parents[1]; python_utils = root / 'python_utils'; sys.path.append(str(python_utils)); import python_utils;
+```
+to the end of the ```[virtual env]/Scripts/distutils-precedence.pth``` file of your virtual environment.
+
+This can also be done on VSCode by adding the following line to the `.vscode/settings.json` file in the workspace directory:
 ```json
 {
     "python.environmentVariables": {
@@ -48,6 +40,23 @@ export PYTHONPATH=$PYTHONPATH:/path/to/python_utils
 ```
 where `/path/to/python_utils` should be replaced with the path to the [python_utils][python_utils] directory.
 
+The rest of this README is the original README of the HPC labs.
+
+## Generating report
+The report is generated using the batch file [update_report.bat](report/update_report.bat). This batch file runs all the aforementioned analyses and then compiles the report using LaTeX. If you want to generate the report, you should have a TexLive installed. 
+
+
+# Assignment HPC
+
+This file contains a bunch of helper commands and links that you can find useful during your development on DelftBlue.
+
+Please unzip the assignments folder and then add `<assignment_x>` folder from `HPC/<assignment_x>` in the `HPC` folder of your delftBlue. The assignments folders can be downloaded from BrightSpace.
+
+Each assignment folders contains .sh file, this are files that contains slurm directive and tell DelftBlue how to compile and run your code. You can submit a job to the cluster by doing `sbatch ./HPC/<assigment_folder>/<program_name>.sh`
+
+To change the directive for slurm, you need to modify the `<program_name>.sh` files. 
+For example to run the code on 4 nodes `SBATCH --ntasks=4`.
+Please look at [slurm directive docs](https://slurm.schedmd.com/sbatch.html) for a details list of all options and their corresponding syntax
 
 # Resources
 
