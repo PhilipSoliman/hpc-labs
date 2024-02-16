@@ -26,7 +26,7 @@ This can also be done on VSCode by adding the following line to the `.vscode/set
     }
 }
 ```
-Alternatively, the PYTHONPATH environment variable can be set by on windows by adding the following line to the `.vscode/settings.json` file in the workspace directory:
+Alternatively, the PYTHONPATH environment variable can be set on windows by adding the following line to the `.vscode/settings.json` file in the workspace directory:
 ```json
 {
   "terminal.integrated.env.windows": {
@@ -43,7 +43,7 @@ where `/path/to/python_utils` should be replaced with the path to the [python_ut
 The rest of this README is the original README of the HPC labs.
 
 ## Generating report
-The report is generated using the batch file [update_report.bat](report/update_report.bat). This batch file runs all the aforementioned analyses and then compiles the report using LaTeX. If you want to generate the report, you should have a TexLive installed. 
+The report is generated using the batch file [update_report.bat](report/update_report.bat). This batch file runs all the aforementioned analyses. Thereby generating all the figures and tables present in the report. The final report is then compiled by subsequently running ```pdf-latex -> biber -> pdf-latex -> pdf-latex```. You will need a working installation of (a package like) TexLive to do this. 
 
 
 # Assignment HPC
